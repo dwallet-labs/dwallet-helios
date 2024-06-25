@@ -1,4 +1,5 @@
 use std::ops::Deref;
+use hex::encode;
 
 use ssz_rs::prelude::*;
 
@@ -76,15 +77,29 @@ impl<const N: usize> ssz_rs::Deserialize for ByteVector<N> {
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteVector<N> {}
 
+impl<const N: usize> serde::Serialize for ByteVector<N>
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let bytes = encode(self.inner.as_slice());
+        Ok(serializer.serialize_str(format!("0x{}", bytes).as_str())?)
+    }
+}
+
 impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let bytes: String = serde::Deserialize::deserialize(deserializer)?;
-        let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
+        let bytes: String = serde::Deserialize::deserialize(deserializer).unwrap_or_else(|e| "".to_string());
+        if bytes.is_empty() {
+            return Ok(Self::default());
+        }
+        let bytes = hex::decode(bytes.strip_prefix("0x").unwrap_or_default()).unwrap_or_default();
         Ok(Self {
-            inner: bytes.to_vec().try_into().unwrap(),
+            inner: bytes.to_vec().try_into().unwrap_or_default(),
         })
     }
 }
@@ -234,6 +249,16 @@ impl ssz_rs::Deserialize for U64 {
 
 impl ssz_rs::SimpleSerialize for U64 {}
 
+impl serde::Serialize for U64 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let string = self.inner.to_string();
+        Ok(serializer.serialize_str(string.as_str())?)
+    }
+}
+
 impl<'de> serde::Deserialize<'de> for U64 {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
@@ -241,7 +266,16 @@ impl<'de> serde::Deserialize<'de> for U64 {
     {
         let val: String = serde::Deserialize::deserialize(deserializer)?;
         Ok(Self {
-            inner: val.parse().unwrap(),
+            inner: val.parse().unwrap_or_default(),
         })
+    }
+}
+
+impl<const N: usize> From<Option<ByteVector<N>>> for ByteVector<N> {
+    fn from(value: std::option::Option<ByteVector<N>>) -> Self {
+        match value {
+            Some(value) => ByteVector::try_from(value).unwrap_or_default(),
+            None => ByteVector::default(),
+        }
     }
 }
