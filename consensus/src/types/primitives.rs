@@ -104,7 +104,7 @@ impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize )]
 pub struct ByteList<const N: usize> {
     inner: List<u8, N>,
 }

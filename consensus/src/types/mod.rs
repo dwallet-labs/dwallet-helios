@@ -65,7 +65,7 @@ pub struct SignedBlsToExecutionChange {
     signature: SignatureBytes,
 }
 
-#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, SimpleSerialize, serde::Deserialize, serde::Serialize)]
 pub struct BlsToExecutionChange {
     validator_index: U64,
     from_bls_pubkey: BLSPubKey,
@@ -79,7 +79,7 @@ pub struct BlsToExecutionChange {
         serde(deny_unknown_fields)
     )
 )]
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub struct ExecutionPayload {
     pub parent_hash: Bytes32,
