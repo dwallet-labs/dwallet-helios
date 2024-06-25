@@ -93,7 +93,7 @@ impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     where
         D: serde::Deserializer<'de>,
     {
-        let bytes: String = serde::Deserialize::deserialize(deserializer).unwrap_or_else(|e| "".to_string());
+        let bytes: String = serde::Deserialize::deserialize(deserializer).unwrap_or_else(|_| String::default());
         if bytes.is_empty() {
             return Ok(Self::default());
         }

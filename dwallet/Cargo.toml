@@ -1,0 +1,17 @@
+[package]
+name = "dwallet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eyre.workspace = true
+serde.workspace = true
+hex.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+milagro_bls.workspace = true
+ssz-rs.workspace = true
+
+config = { path = "../config" }
+consensus = { path = "../consensus" }
+execution = { path = "../execution" }

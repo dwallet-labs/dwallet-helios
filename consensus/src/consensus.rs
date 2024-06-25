@@ -722,7 +722,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 }
 
-fn get_participating_keys(
+pub fn get_participating_keys(
     committee: &SyncCommittee,
     bitfield: &Bitvector<512>,
 ) -> Result<Vec<PublicKey>> {
@@ -738,7 +738,8 @@ fn get_participating_keys(
     Ok(pks)
 }
 
-fn get_bits(bitfield: &Bitvector<512>) -> u64 {
+/// Counts the number of bits set to `true` in a given `Bitvector<512>`.
+pub fn get_bits(bitfield: &Bitvector<512>) -> u64 {
     let mut count = 0;
     bitfield.iter().for_each(|bit| {
         if bit == true {
@@ -749,7 +750,7 @@ fn get_bits(bitfield: &Bitvector<512>) -> u64 {
     count
 }
 
-fn is_finality_proof_valid(
+pub fn is_finality_proof_valid(
     attested_header: &Header,
     finality_header: &mut Header,
     finality_branch: &[Bytes32],
@@ -757,7 +758,7 @@ fn is_finality_proof_valid(
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
 
-fn is_next_committee_proof_valid(
+pub fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
     next_committee_branch: &[Bytes32],
@@ -771,7 +772,7 @@ fn is_next_committee_proof_valid(
     )
 }
 
-fn is_current_committee_proof_valid(
+pub fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
     current_committee_branch: &[Bytes32],

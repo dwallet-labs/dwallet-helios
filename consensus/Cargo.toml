@@ -22,6 +22,8 @@ serde.workspace = true
 serde_json.workspace = true
 
 #misc
+anyhow.workspace = true
+bcs.workspace = true
 eyre.workspace = true
 hex.workspace = true
 bytes.workspace = true

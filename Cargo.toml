@@ -6,7 +6,7 @@ autobenches = false
 exclude = ["benches"]
 
 [workspace]
-members = [
+members = ["dwallet",
     "cli",
     "client",
     "common",
@@ -46,6 +46,8 @@ serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.85"
 
 # misc
+anyhow = "1.0.40"
+bcs = "0.1.4"
 eyre = "0.6.8"
 hex = "0.4.3"
 bytes = "1.5"

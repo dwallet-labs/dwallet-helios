@@ -1,3 +1,4 @@
+use anyhow::Error;
 use eyre::Result;
 use ssz_rs::prelude::*;
 
@@ -423,14 +424,14 @@ impl Into<OptimisticUpdate> for OptimisticUpdateSerde {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
-pub(crate) struct UpdatesResponse {
+pub struct UpdatesResponse {
     pub updates: Vec<Update>,
     pub finality_update: FinalityUpdate,
     pub optimistic_update: OptimisticUpdate,
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub(crate) struct UpdatesResponseSerde {
+pub struct UpdatesResponseSerde {
     pub updates: Vec<UpdateSerde>,
     pub finality_update: FinalityUpdateSerde,
     pub optimistic_update: OptimisticUpdateSerde,
