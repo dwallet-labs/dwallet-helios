@@ -2,7 +2,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{bytes_deserialize, bytes_serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize,
+    Deserialize,
+    Debug,
+    Default,
+    Clone,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
 pub struct ChainConfig {
     pub chain_id: u64,
     pub genesis_time: u64,

@@ -123,7 +123,7 @@ impl CheckpointFallback {
                 })?;
             let parsed: Vec<CheckpointFallbackService> =
                 serde_yaml::from_value(service_list.clone())?;
-            services.insert(*network, parsed);
+            services.insert(network.clone(), parsed);
         }
         self.services = services;
 

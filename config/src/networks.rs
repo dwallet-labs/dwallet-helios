@@ -14,13 +14,14 @@ use crate::base::BaseConfig;
 use crate::types::{ChainConfig, Fork, Forks};
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,
+    Debug, Clone, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,
 )]
 pub enum Network {
     MAINNET,
     GOERLI,
     SEPOLIA,
     HOLESKY,
+    DEVNET(ChainConfig),
 }
 
 impl FromStr for Network {
@@ -32,6 +33,7 @@ impl FromStr for Network {
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
             "holesky" => Ok(Self::HOLESKY),
+            "devnet" => Ok(Self::DEVNET(ChainConfig::default())),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -44,9 +46,16 @@ impl Display for Network {
             Self::GOERLI => "goerli",
             Self::SEPOLIA => "sepolia",
             Self::HOLESKY => "holesky",
+            Self::DEVNET(_) => "devnet",
         };
 
         f.write_str(str)
+    }
+}
+
+impl Default for Network {
+    fn default() -> Self {
+        Self::MAINNET
     }
 }
 
@@ -57,6 +66,7 @@ impl Network {
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
             Self::HOLESKY => holesky(),
+            Self::DEVNET(config) => devnet(config.clone()),
         }
     }
 
@@ -69,6 +79,13 @@ impl Network {
             _ => Err(eyre::eyre!("chain id not known")),
         }
     }
+
+    pub fn with_devnet_config(&self, config: ChainConfig) -> Self {
+        match self {
+            Self::DEVNET(_) => Self::DEVNET(config),
+            _ => self.clone(),
+        }
+    }
 }
 
 pub fn mainnet() -> BaseConfig {
@@ -76,7 +93,7 @@ pub fn mainnet() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0xc7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: Some("https://www.lightclientdata.org".to_string()),
         chain: ChainConfig {
@@ -85,7 +102,7 @@ pub fn mainnet() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0x4b363db94e286120d76eb905340fdd4e54bfe9f06bf33ff6cf5ad27f511bfe95",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -121,7 +138,7 @@ pub fn goerli() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0xf6e9d5fdd7c406834e888961beab07b2443b64703c36acc1274ae1ce8bb48839",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
@@ -130,7 +147,7 @@ pub fn goerli() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0x043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -166,7 +183,7 @@ pub fn sepolia() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0x4135bf01bddcfadac11143ba911f1c7f0772fdd6b87742b0bc229887bbf62b48",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
@@ -175,7 +192,7 @@ pub fn sepolia() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0xd8ea171f3c94aea21ebc42a1ed61052acf3f9209c00e4efbaaddac09ed9b8078",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -211,7 +228,7 @@ pub fn holesky() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0xd8fad84478f4947c3d09cfefde36d09bb9e71217f650610a3eb730eba54cdf1f",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
@@ -220,7 +237,7 @@ pub fn holesky() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0x9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -247,6 +264,45 @@ pub fn holesky() -> BaseConfig {
         max_checkpoint_age: 1_209_600, // 14 days
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::HOLESKY)),
+        ..std::default::Default::default()
+    }
+}
+
+pub fn devnet(config: ChainConfig) -> BaseConfig {
+    // This configuration needs to be updated every time you spin up a local eth network (genesis_time, genesis_root)
+    BaseConfig {
+        default_checkpoint: hex_str_to_bytes(
+            "0xb3b5d384704782ab9e17969ad692340b1f8952baf5e8089b8317fc45f6b360e3",
+        )
+            .unwrap(),
+        rpc_port: 8545,
+        consensus_rpc: Some("http://localhost:3500".to_string()),
+        chain: config.clone(),
+        forks: Forks {
+            genesis: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x20000089").unwrap(),
+            },
+            altair: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x20000090").unwrap(),
+            },
+            bellatrix: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x20000091").unwrap(),
+            },
+            capella: Fork {
+                epoch: 0,
+                fork_version: hex_str_to_bytes("0x20000092").unwrap(),
+            },
+            deneb: Fork {
+                epoch: 132608,
+                fork_version: hex_str_to_bytes("0x20000093").unwrap(),
+            },
+        },
+        max_checkpoint_age: 1_209_600, // 14 days
+        #[cfg(not(target_arch = "wasm32"))]
+        data_dir: Some(data_dir(Network::DEVNET(config))),
         ..std::default::Default::default()
     }
 }
