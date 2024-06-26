@@ -71,6 +71,7 @@ client = { path = "./client" }
 config = { path = "./config" }
 common = { path = "./common" }
 consensus = { path = "./consensus" }
+dwallet = { path = "./dwallet" }
 execution = { path = "./execution" }
 
 [dev-dependencies]
