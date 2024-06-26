@@ -2,21 +2,21 @@ use ethers::types::H256;
 use eyre::Error;
 use sha3::{Digest, Keccak256};
 
-/// This module provides utilities for standardizing and calculating storage slots in Solidity
-/// smart contracts. These utilities are essential for interacting with smart contract storage
-/// in a predictable and reliable manner. The utilities include functions for standardizing
-/// input slots and keys, calculating mapping slots, and determining the storage slot for a given
-/// message and dWallet ID. These functions follow the specifications and layout described in
-/// Solidity's documentation for storage slots and mapping layouts.
-///
-/// Solidity uses 256-bit hashes (H256) for storage slots and keys.
-/// When converting integers or other types of data to fit this format, padding is required
-/// to ensure they match the expected 256-bit length.
-///
-/// The code in this module originates from the need to interact with smart contract storage
-/// layouts programmatically, ensuring consistency and correctness in storage access patterns.
-/// The implementation follows the specifications outlined in the Solidity documentation:
-/// https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays
+//! This module provides utilities for standardizing and calculating storage slots in Solidity
+//! smart contracts. These utilities are essential for interacting with smart contract storage
+//! in a predictable and reliable manner. The utilities include functions for standardizing
+//! input slots and keys, calculating mapping slots, and determining the storage slot for a given
+//! message and dWallet ID. These functions follow the specifications and layout described in
+//! Solidity's documentation for storage slots and mapping layouts.
+//!
+//! Solidity uses 256-bit hashes (H256) for storage slots and keys.
+//! When converting integers or other types of data to fit this format, padding is required
+//! to ensure they match the expected 256-bit length.
+//!
+//! The code in this module originates from the need to interact with smart contract storage
+//! layouts programmatically, ensuring consistency and correctness in storage access patterns.
+//! The implementation follows the specifications outlined in the Solidity documentation:
+//! https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays
 
 /// This function standardizes the input slot for a given unsigned 64-bit integer.
 /// It first converts the integer into a hexadecimal string representation.
