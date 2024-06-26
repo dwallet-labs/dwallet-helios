@@ -1,9 +1,10 @@
 use std::cmp;
 use chrono::{Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
+use ethers::utils::hex::ToHexExt;
 use eyre::{anyhow, Error, eyre};
 use milagro_bls::PublicKey;
-use ssz_rs::{Merkleized, Vector};
+use ssz_rs::{Merkleized, Node, Vector};
 use config::Network;
 use consensus::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
 use consensus::errors::ConsensusError;
@@ -123,13 +124,12 @@ impl EthState {
     ///      is accepted optimistically to keep the state as current as possible.
     pub async fn get_updates(
         &mut self,
-        current_state_checkpoint: &str,
     ) -> Result<UpdatesResponse, eyre::Error> {
         let rpc = NimbusRpc::new(&self.rpc);
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
         {
-            self.bootstrap(&rpc, current_state_checkpoint).await?;
+            self.bootstrap(&rpc, &self.last_checkpoint).await?;
         }
 
         let current_period = calc_sync_period(self.finalized_header.slot.into());
@@ -182,7 +182,7 @@ impl EthState {
     /// This function will return an error if:
     /// * Any of the updates fails the verification process.
     /// * There is an error while applying any of the updates.
-    pub fn sync_updates(&mut self, updates: &UpdatesResponse) -> Result<(), Error> {
+    pub fn verify_and_apply_updates(&mut self, updates: &UpdatesResponse) -> Result<(), Error> {
         for update in &updates.updates {
             self.verify_update(&update)?;
             self.apply_update(&update);

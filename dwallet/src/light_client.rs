@@ -1,0 +1,120 @@
+use std::error::Report;
+use anyhow::{anyhow, Error};
+use tracing::log::info;
+use client::{Client, ClientBuilder};
+use config::Network;
+use consensus::database::FileDB;
+use consensus::types::{Bytes32, UpdatesResponse};
+use ethers::utils::keccak256;
+use ethers::prelude::{Address};
+use execution::types::ProofVerificationInput;
+use crate::eth_state::EthState;
+use crate::utils::{create_account_proof, create_storage_proof};
+
+/// Interface of Ethereum light client for dwallet network
+pub struct EthLightClient {
+    client: Client<FileDB>,
+    eth_state: EthState,
+}
+
+#[derive(Default, Clone)]
+pub struct EthLightClientConfig {
+    // Eth Network (Mainnet, Goerli, etc).
+    pub network: Network,
+    // Eth RPC URL.
+    pub execution_rpc: String,
+    // Consensus RPC URL.
+    pub consensus_rpc: String,
+    pub max_checkpoint_age: u64,
+    // Beacon Checkpoint
+    pub checkpoint: String,
+}
+
+#[derive(Default, Clone)]
+pub struct ProofRequestParameters {
+    pub message: String,
+    pub dwallet_id: Vec<u8>,
+    pub data_slot: u64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct ProofResponse {
+    pub account_proof: ProofVerificationInput,
+    pub storage_proof: ProofVerificationInput,
+}
+
+impl EthLightClient {
+    fn new(config: EthLightClientConfig, eth_state: EthState) -> Result<Self, anyhow::Error> {
+        let network = &config.network;
+        let client: Client<FileDB> = ClientBuilder::new()
+            .network(network.clone())
+            .execution_rpc(&config.execution_rpc)
+            .consensus_rpc(&config.consensus_rpc)
+            .checkpoint(&config.checkpoint)
+            .data_dir("/tmp/helios".parse()?)
+            .build()
+            .map_err(|e| anyhow!("failed to create client: {}", e))?;
+
+        Ok(Self {
+            client,
+            eth_state,
+        })
+    }
+
+    async fn start(&mut self) -> Result<(), anyhow::Error> {
+        self.client
+            .start()
+            .await
+            .map_err(|e| anyhow!("failed to start client: {}", e))?;
+        self.client.wait_synced().await;
+        Ok(())
+    }
+
+    pub async fn init_new_light_client(
+        eth_client_config: EthLightClientConfig,
+        eth_state: EthState,
+    ) -> Result<EthLightClient, anyhow::Error> {
+        let mut eth_lc = EthLightClient::new(eth_client_config.clone(), eth_state)?;
+        eth_lc.start().await?;
+        Ok(eth_lc)
+    }
+
+    /// Get the Merkle Tree Proof (EIP1186Proof) for the client parameters.
+    pub async fn get_proofs(
+        self: &mut EthLightClient,
+        contract_addr: &Address,
+        proof_parameters: ProofRequestParameters,
+    ) -> Result<ProofResponse, anyhow::Error> {
+        let block_number = self.eth_state.last_update_execution_block_number;
+        let state_root = &self.eth_state.last_update_execution_state_root;
+        let message_map_index = execution::utils::get_message_storage_slot(
+            proof_parameters.message.clone(),
+            proof_parameters.dwallet_id.clone(),
+            proof_parameters.data_slot,
+        )
+            .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
+
+        let proof = self
+            .client
+            .get_proof(contract_addr, &[message_map_index], block_number)
+            .await
+            .map_err(|e| anyhow!("failed to get proof: {}", e))?;
+
+        let account_proof = create_account_proof(contract_addr, state_root, &proof);
+
+        let storage_proof = create_storage_proof(message_map_index, proof)
+            .map_err(|e| anyhow!("failed to create storage proof: {}", e))?;
+
+        Ok(ProofResponse {
+            account_proof,
+            storage_proof,
+        })
+    }
+
+    pub async fn get_updates(
+        &mut self,
+    ) -> Result<UpdatesResponse, eyre::Error> {
+        self.eth_state.get_updates().await
+    }
+}
+

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use config::networks::Network;
 use consensus::database::Database;
-use ethers::prelude::{Address, U256};
+use ethers::prelude::{Address, EIP1186ProofResponse, U256};
 use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
 use eyre::{eyre, Result};
 
@@ -273,6 +273,15 @@ impl<DB: Database> Client<DB> {
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         self.node.estimate_gas(opts).await.map_err(|err| err.into())
+    }
+
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        self.node.get_proof(address, slots, block).await
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {

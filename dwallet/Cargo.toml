@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow.workspace = true
 eyre.workspace = true
 serde.workspace = true
 hex.workspace = true
@@ -11,7 +12,9 @@ tracing.workspace = true
 chrono.workspace = true
 milagro_bls.workspace = true
 ssz-rs.workspace = true
+ethers.workspace = true
 
 config = { path = "../config" }
 consensus = { path = "../consensus" }
+client = { path = "../client" }
 execution = { path = "../execution" }
