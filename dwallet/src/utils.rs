@@ -1,3 +1,6 @@
+//! This module provides functionality for creating Merkle proofs related to Ethereum account
+//! and storage states.
+
 use ethers::prelude::{EIP1186ProofResponse, H256, U256, Address};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::RlpStream;
@@ -5,6 +8,7 @@ use eyre::{eyre, Report};
 use consensus::types::{Bytes32};
 use execution::types::ProofVerificationInput;
 
+/// Creates a proof verification input for an Ethereum account.
 pub(crate) fn create_account_proof(contract_addr: &Address, state_root: &Bytes32, proof: &EIP1186ProofResponse) -> ProofVerificationInput {
     let account_path = keccak256(contract_addr.as_bytes()).to_vec();
     let account_encoded = encode_account(&proof);
@@ -18,6 +22,8 @@ pub(crate) fn create_account_proof(contract_addr: &Address, state_root: &Bytes32
     account_proof
 }
 
+/// Encodes an Ethereum account using RLP encoding according to the Ethereum specifications.
+/// More info at: https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
 pub(crate) fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
     let mut stream = RlpStream::new_list(4);
     stream.append(&proof.nonce);
@@ -28,7 +34,9 @@ pub(crate) fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
     encoded.to_vec()
 }
 
-pub(crate) fn create_storage_proof(
+/// Extracts the storage proof for a specific message from the proof response
+/// and returns a ProofVerificationInput with the storage proof.
+pub(crate) fn extract_storage_proof(
     message_map_index: H256,
     proof: EIP1186ProofResponse,
 ) -> Result<ProofVerificationInput, Report> {

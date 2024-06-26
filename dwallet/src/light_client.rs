@@ -1,15 +1,20 @@
-use eyre::Report;
-use anyhow::{anyhow, Error};
-use tracing::log::info;
+//! This module defines an Ethereum light client interface for the dwallet network, providing functionality
+//! to initialize, start, and interact with an Ethereum light client. It supports retrieving Merkle proofs
+//! for account and storage states and fetching updates from the consensus layer.
+//!
+//! The main structure provided is `EthLightClient`, which integrates with the `ethers` library for Ethereum
+//! interaction. The configuration and request parameters for the client are defined in
+//! the `EthLightClientConfig` and `ProofRequestParameters` structures respectively.
+
+use anyhow::{anyhow};
 use client::{Client, ClientBuilder};
 use config::Network;
 use consensus::database::FileDB;
-use consensus::types::{Bytes32, UpdatesResponse};
-use ethers::utils::keccak256;
+use consensus::types::{UpdatesResponse};
 use ethers::prelude::{Address};
 use execution::types::ProofVerificationInput;
 use crate::eth_state::EthState;
-use crate::utils::{create_account_proof, create_storage_proof};
+use crate::utils::{create_account_proof, extract_storage_proof};
 
 /// Interface of Ethereum light client for dwallet network
 pub struct EthLightClient {
@@ -102,7 +107,7 @@ impl EthLightClient {
 
         let account_proof = create_account_proof(contract_addr, state_root, &proof);
 
-        let storage_proof = create_storage_proof(message_map_index, proof)
+        let storage_proof = extract_storage_proof(message_map_index, proof)
             .map_err(|e| anyhow!("failed to create storage proof: {}", e))?;
 
         Ok(ProofResponse {
@@ -111,6 +116,9 @@ impl EthLightClient {
         })
     }
 
+    /// Get new block headers' updates from the consensus layer.
+    /// The updates are fetched starting from the last validated checkpoint
+    /// (last_checkpoint field) that is stored in the state.
     pub async fn get_updates(
         &mut self,
     ) -> Result<UpdatesResponse, eyre::Error> {
