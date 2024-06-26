@@ -15,12 +15,6 @@ use consensus::types::primitives::U64;
 use consensus::utils::{calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid};
 use tracing::info;
 
-/// NOTE:
-/// This struct is created to have only the necessary functions for the proof verification.
-/// Some functions in this struct are borrowed from the consensus module in the Helios project.
-/// We had to copy them here since their logic is similar, but the types they operate on are different.
-/// Original code can be found here: `consensus/src/consensus.rs` inside `Inner` struct impl block.
-
 /// The EthState struct is designed to maintain the state Ethereum's consensus layer, and perform
 /// various operations on it.
 /// Operations include synchronizing the local state with the blockchain state, verifying and applying updates, etc.
