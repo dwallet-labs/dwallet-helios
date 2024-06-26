@@ -1,4 +1,4 @@
-use std::error::Report;
+use eyre::Report;
 use anyhow::{anyhow, Error};
 use tracing::log::info;
 use client::{Client, ClientBuilder};

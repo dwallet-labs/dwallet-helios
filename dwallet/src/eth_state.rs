@@ -126,10 +126,11 @@ impl EthState {
         &mut self,
     ) -> Result<UpdatesResponse, eyre::Error> {
         let rpc = NimbusRpc::new(&self.rpc);
+        let checkpoint = self.last_checkpoint.clone();
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
         {
-            self.bootstrap(&rpc, &self.last_checkpoint).await?;
+            self.bootstrap(&rpc, &checkpoint).await?;
         }
 
         let current_period = calc_sync_period(self.finalized_header.slot.into());
