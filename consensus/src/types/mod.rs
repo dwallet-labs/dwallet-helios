@@ -232,6 +232,14 @@ pub struct Update {
     pub signature_slot: U64,
 }
 
+/// This struct is an equivalent to the `Update` struct, but with different header deserialization.
+/// The deserialization function `header_deserialize` is only deserializing `Header` from json.
+/// Since dWallet-network has a limit for transaction's input size, we need to send the updates as bcs
+/// rather than json.
+/// This is why we have this struct, which is used for deserializing the updates from bcs.
+/// We cannot give up on any of the structs since when we fetch updates from RPC, it is in json format.
+/// The same goes for `FinalityUpdateSerde`, `OptimisticUpdateSerde` and `UpdatesResponseSerde`
+/// as they are also sent to dWallet-network as parameters to a function.
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct UpdateSerde {
     pub attested_header: Header,
