@@ -55,7 +55,7 @@ impl EthLightClient {
             .network(network.clone())
             .execution_rpc(&config.execution_rpc)
             .consensus_rpc(&config.consensus_rpc)
-            .checkpoint(&config.checkpoint)
+            .checkpoint(&eth_state.last_checkpoint)
             .data_dir("/tmp/helios".parse()?)
             .build()
             .map_err(|e| anyhow!("failed to create client: {}", e))?;
