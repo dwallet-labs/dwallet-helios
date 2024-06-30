@@ -12,6 +12,7 @@ use crate::utils::bytes_serialize;
 /// The base configuration for a network.
 #[derive(Serialize, Deserialize)]
 pub struct BaseConfig {
+    #[serde(default = "default_ipv4")]
     pub rpc_bind_ip: IpAddr,
     pub rpc_port: u16,
     pub consensus_rpc: Option<String>,
@@ -62,4 +63,8 @@ impl BaseConfig {
         }
         Ok(config)
     }
+}
+
+fn default_ipv4() -> IpAddr {
+    IpAddr::V4(Ipv4Addr::LOCALHOST)
 }
