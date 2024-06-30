@@ -21,7 +21,7 @@ pub enum Network {
     GOERLI,
     SEPOLIA,
     HOLESKY,
-    DEVNET(ChainConfig),
+    DEVNET(String),
 }
 
 impl FromStr for Network {
@@ -33,7 +33,7 @@ impl FromStr for Network {
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
             "holesky" => Ok(Self::HOLESKY),
-            "devnet" => Ok(Self::DEVNET(ChainConfig::default())),
+            "devnet" => Ok(Self::DEVNET(String::default())),
             _ => Err(eyre::eyre!("network not recognized")),
         }
     }
@@ -66,7 +66,7 @@ impl Network {
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
             Self::HOLESKY => holesky(),
-            Self::DEVNET(config) => devnet(config.clone()),
+            Self::DEVNET(relative_path) => devnet(&relative_path),
         }
     }
 
@@ -80,9 +80,9 @@ impl Network {
         }
     }
 
-    pub fn with_devnet_config(&self, config: ChainConfig) -> Self {
+    pub fn with_devnet_config_path(&self, path: String) -> Self {
         match self {
-            Self::DEVNET(_) => Self::DEVNET(config),
+            Self::DEVNET(_) => Self::DEVNET(path),
             _ => self.clone(),
         }
     }
@@ -268,43 +268,9 @@ pub fn holesky() -> BaseConfig {
     }
 }
 
-pub fn devnet(config: ChainConfig) -> BaseConfig {
-    // This configuration needs to be updated every time you spin up a local eth network (genesis_time, genesis_root)
-    BaseConfig {
-        default_checkpoint: hex_str_to_bytes(
-            "0xb3b5d384704782ab9e17969ad692340b1f8952baf5e8089b8317fc45f6b360e3",
-        )
-            .unwrap(),
-        rpc_port: 8545,
-        consensus_rpc: Some("http://localhost:3500".to_string()),
-        chain: config.clone(),
-        forks: Forks {
-            genesis: Fork {
-                epoch: 0,
-                fork_version: hex_str_to_bytes("0x20000089").unwrap(),
-            },
-            altair: Fork {
-                epoch: 0,
-                fork_version: hex_str_to_bytes("0x20000090").unwrap(),
-            },
-            bellatrix: Fork {
-                epoch: 0,
-                fork_version: hex_str_to_bytes("0x20000091").unwrap(),
-            },
-            capella: Fork {
-                epoch: 0,
-                fork_version: hex_str_to_bytes("0x20000092").unwrap(),
-            },
-            deneb: Fork {
-                epoch: 132608,
-                fork_version: hex_str_to_bytes("0x20000093").unwrap(),
-            },
-        },
-        max_checkpoint_age: 1_209_600, // 14 days
-        #[cfg(not(target_arch = "wasm32"))]
-        data_dir: Some(data_dir(Network::DEVNET(config))),
-        ..std::default::Default::default()
-    }
+pub fn devnet(relative_path: &str) -> BaseConfig {
+    let config = BaseConfig::from_yaml_file(relative_path).unwrap();
+    return config;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
