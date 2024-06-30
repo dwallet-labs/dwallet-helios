@@ -1,7 +1,3 @@
-use ethers::types::H256;
-use eyre::Error;
-use sha3::{Digest, Keccak256};
-
 //! This module provides utilities for standardizing and calculating storage slots in Solidity
 //! smart contracts. These utilities are essential for interacting with smart contract storage
 //! in a predictable and reliable manner. The utilities include functions for standardizing
@@ -17,6 +13,11 @@ use sha3::{Digest, Keccak256};
 //! layouts programmatically, ensuring consistency and correctness in storage access patterns.
 //! The implementation follows the specifications outlined in the Solidity documentation:
 //! https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays
+
+use ethers::types::H256;
+use eyre::Error;
+use sha3::{Digest, Keccak256};
+
 
 /// This function standardizes the input slot for a given unsigned 64-bit integer.
 /// It first converts the integer into a hexadecimal string representation.
