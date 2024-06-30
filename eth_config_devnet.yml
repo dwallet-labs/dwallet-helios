@@ -1,0 +1,29 @@
+rpc_bind_ip: "0.0.0.0"
+rpc_port: 8545
+consensus_rpc: "http://localhost:3500"
+default_checkpoint: "b3b5d384704782ab9e17969ad692340b1f8952baf5e8089b8317fc45f6b360e3"
+
+chain:
+  chain_id: 12
+  genesis_time: 1234567890
+  genesis_root: "b3b5d384704782ab9e17969ad692340b1f8952baf5e8089b8317fc45f6b360e3"
+
+forks:
+  genesis:
+    epoch: 0
+    fork_version: "0x20000089"
+  altair:
+    epoch: 0
+    fork_version: "0x20000090"
+  bellatrix:
+    epoch: 0
+    fork_version: "0x20000091"
+  capella:
+    epoch: 0
+    fork_version: "0x20000092"
+  deneb:
+    epoch: 132608
+    fork_version: "0x20000093"
+  electra:
+    epoch: 0
+    fork_version: "0x20000094"
