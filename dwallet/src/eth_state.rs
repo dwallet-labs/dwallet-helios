@@ -32,8 +32,6 @@ pub struct EthState {
     #[serde(default)]
     pub finalized_header: Header,
     #[serde(default)]
-    rpc: String,
-    #[serde(default)]
     optimistic_header: Header,
     #[serde(default)]
     previous_max_active_participants: u64,
@@ -55,7 +53,6 @@ impl EthState {
             next_sync_committee: None,
             finalized_header: Header::default(),
             optimistic_header: Header::default(),
-            rpc: String::default(),
             previous_max_active_participants: u64::default(),
             current_max_active_participants: u64::default(),
             network: Network::default(),
@@ -80,15 +77,6 @@ impl EthState {
     /// the specific Ethereum network (e.g., Mainnet, Holesky, devnet, etc.).
     pub fn set_network(&mut self, network: Network) -> Self {
         self.network = network;
-        self.clone()
-    }
-
-    /// Sets the RPC endpoint for the Ethereum state.
-    ///
-    /// This method is used to set the RPC endpoint for the Ethereum state.
-    /// The RPC endpoint is a string that represents the URL of the Ethereum node that the client will connect to.
-    pub fn set_rpc(&mut self, rpc: String) -> Self {
-        self.rpc = rpc;
         self.clone()
     }
 
@@ -118,8 +106,8 @@ impl EthState {
     ///      is accepted optimistically to keep the state as current as possible.
     pub async fn get_updates(
         &mut self,
+        rpc: &NimbusRpc,
     ) -> Result<UpdatesResponse, eyre::Error> {
-        let rpc = NimbusRpc::new(&self.rpc);
         let checkpoint = self.last_checkpoint.clone();
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
@@ -137,7 +125,7 @@ impl EthState {
         let optimistic_update = rpc.get_optimistic_update().await?;
 
         let (execution_block_number, execution_state_root) = self
-            .get_execution_block_info_from_update(&finality_update)
+            .get_execution_block_info_from_update(&finality_update, rpc)
             .await?;
 
         self.last_update_execution_block_number = execution_block_number;
@@ -153,9 +141,8 @@ impl EthState {
     async fn get_execution_block_info_from_update(
         &self,
         update: &FinalityUpdate,
+        rpc: &NimbusRpc,
     ) -> Result<(u64, Bytes32), Error> {
-        let rpc = NimbusRpc::new(&self.rpc);
-
         let latest_header_slot = update.attested_header.slot.as_u64();
         let block = rpc.get_block(latest_header_slot).await?;
 

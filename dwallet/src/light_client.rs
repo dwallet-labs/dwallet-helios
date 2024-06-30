@@ -12,6 +12,8 @@ use config::Network;
 use consensus::database::FileDB;
 use consensus::types::{UpdatesResponse};
 use ethers::prelude::{Address};
+use consensus::rpc::ConsensusRpc;
+use consensus::rpc::nimbus_rpc::NimbusRpc;
 use execution::types::ProofVerificationInput;
 use crate::eth_state::EthState;
 use crate::utils::{create_account_proof, extract_storage_proof};
@@ -20,6 +22,7 @@ use crate::utils::{create_account_proof, extract_storage_proof};
 pub struct EthLightClient {
     client: Client<FileDB>,
     eth_state: EthState,
+    consensus_rpc: NimbusRpc,
 }
 
 #[derive(Default, Clone)]
@@ -58,9 +61,12 @@ impl EthLightClient {
             .build()
             .map_err(|e| anyhow!("failed to create client: {}", e))?;
 
+        let consensus_rpc = NimbusRpc::new(&config.consensus_rpc);
+
         Ok(Self {
             client,
             eth_state,
+            consensus_rpc,
         })
     }
 
@@ -120,7 +126,7 @@ impl EthLightClient {
     pub async fn get_updates(
         &mut self,
     ) -> Result<UpdatesResponse, eyre::Error> {
-        self.eth_state.get_updates().await
+        self.eth_state.get_updates(&self.consensus_rpc).await
     }
 }
 
