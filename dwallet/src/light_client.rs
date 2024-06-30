@@ -31,8 +31,6 @@ pub struct EthLightClientConfig {
     // Consensus RPC URL.
     pub consensus_rpc: String,
     pub max_checkpoint_age: u64,
-    // Beacon Checkpoint
-    pub checkpoint: String,
 }
 
 #[derive(Default, Clone)]
