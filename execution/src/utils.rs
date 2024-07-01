@@ -30,7 +30,7 @@ use sha3::{Digest, Keccak256};
 /// * `input` - An unsigned 64-bit integer that represents the input slot.
 /// # Returns
 /// * A 256-bit hash (H256) that represents the standardized input slot.
-pub fn standardize_slot_input(input: u64) -> H256 {
+fn standardize_slot_input(input: u64) -> H256 {
     let hex_str = format!("{:x}", input);
     let padded_hex_str = format!("{:0>64}", hex_str);
     H256::from_slice(&hex::decode(padded_hex_str).unwrap_or_default())
@@ -47,7 +47,7 @@ pub fn standardize_slot_input(input: u64) -> H256 {
 /// * `input` - A 256-bit hash (H256) that represents the input key.
 /// # Returns
 /// * A 256-bit hash (H256) that represents the standardized input key.
-pub fn standardize_key_input(input: H256) -> H256 {
+fn standardize_key_input(input: H256) -> H256 {
     let hex_str = format!("{:x}", input);
     let padded_hex_str = format!("{:0>64}", hex_str);
     H256::from_slice(&hex::decode(padded_hex_str).unwrap_or_default())
@@ -64,7 +64,7 @@ pub fn standardize_key_input(input: H256) -> H256 {
 /// * `Mapping_slot` - A `u64` value that represents the mapping slot in the contract storage layout.
 /// For more info:
 /// https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays
-pub fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
+fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
     let mut hasher = Keccak256::new();
     let slot_padded = standardize_slot_input(mapping_slot);
     let key_padded = standardize_key_input(key);
@@ -76,7 +76,7 @@ pub fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
 /// Calculates the key for a given message and dWallet ID.
 /// In the smart contract, the key is calculated by hashing the message and the dWallet id together.
 /// The result is a H256 hash that represents the key.
-pub fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
+fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
     let mut hasher = Keccak256::new();
     message.extend_from_slice(dwallet_id.as_slice());
     hasher.update(message);
