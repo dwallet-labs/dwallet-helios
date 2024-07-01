@@ -78,5 +78,7 @@ pub mod prelude {
 }
 
 pub mod dwallet {
+    pub use consensus::types::{UpdatesResponse};
     pub use dwallet::*;
+    pub use execution::proof::verify_proof;
 }
