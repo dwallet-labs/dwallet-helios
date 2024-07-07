@@ -13,6 +13,7 @@ concurrency:
 
 env:
   RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
   RUST_BACKTRACE: 1
   # Change to specific Rust release to pin or `stable` for the latest stable version.
   rust_stable: 1.79
@@ -37,8 +38,9 @@ jobs:
         with:
           toolchain: ${{ env.rust_stable }}
           targets: ${{ matrix.target }}
-#      - name: install target
-#        run: rustup target add ${{ matrix.target }}
+      - name: install target
+        run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build --package cli --release --target ${{ matrix.target }}
 
@@ -75,7 +77,7 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - name: Run Tests
-        run: cargo test --all-features --release
+        run: cargo test --all-features --workspace
 
   clippy:
     name: Clippy
@@ -118,5 +120,3 @@ jobs:
         # --examples = Document all example targets.
         run: |
           cargo doc --workspace --no-deps --all-features --document-private-items --examples
-        env:
-          RUSTDOCFLAGS: -Dwarnings
