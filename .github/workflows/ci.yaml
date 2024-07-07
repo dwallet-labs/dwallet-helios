@@ -28,19 +28,19 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
-          - wasm32-unknown-unknown
+          - aarch64-apple-darwin
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Configure git with personal access token
-        run: |
-          git config --global url."https://x-access-token:${{ env.GH_PRIVATE_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
       - name: Install Rust ${{ env.rust_stable }}
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.rust_stable }}
           targets: ${{ matrix.target }}
-      - run: cargo build --target ${{ matrix.target }} --release
+#      - name: install target
+#        run: rustup target add ${{ matrix.target }}
+      - name: build
+        run: cargo build --package cli --release --target ${{ matrix.target }}
 
   fmt:
     name: Format
@@ -110,7 +110,13 @@ jobs:
           toolchain: ${{ env.rust_stable }}
       - uses: Swatinem/rust-cache@v2
       - name: Check documentation
+        # --no-deps = Do not build documentation for dependencies.
+        # --workspace = Document all members in the workspace.
+        # --all-features = Activate all available features of all selected packages.
+        # --document-private-items = Include non-public items in the documentation.
+        # This will be enabled by default if documenting a binary target.
+        # --examples = Document all example targets.
         run: |
-          cargo doc --lib --no-deps --all-features --document-private-items --examples
+          cargo doc --workspace --no-deps --all-features --document-private-items --examples
         env:
           RUSTDOCFLAGS: -Dwarnings
