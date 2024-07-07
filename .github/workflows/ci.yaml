@@ -118,4 +118,5 @@ jobs:
         # This will be enabled by default if documenting a binary target.
         # --examples = Document all example targets.
         run: |
+          env
           cargo doc --workspace --no-deps --all-features --document-private-items --examples
