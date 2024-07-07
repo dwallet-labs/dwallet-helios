@@ -2,4 +2,3 @@
 test-all = "test --all-features --workspace"
 fmt-all = "fmt --all"
 clippy-all = "clippy --all-targets --all-features -- -D warnings"
-run-all = "clippy --all-targets --all-features --workspace -- -D warnings && cargo fmt --all && cargo test && cargo build && cargo doc"

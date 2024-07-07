@@ -2,13 +2,12 @@
 
 use std::str::FromStr;
 
+use ::client::Client;
+use consensus::database::FileDB;
 use ethers::{
     abi::Address,
     types::{H256, U256},
 };
-
-use ::client::Client;
-use consensus::database::FileDB;
 use helios::{client, config::networks, types::BlockTag};
 
 /// Fetches the latest mainnet checkpoint from the fallback service.
@@ -46,7 +45,9 @@ pub async fn inner_construct_mainnet_client() -> eyre::Result<Client<FileDB>> {
     Ok(client)
 }
 
-pub async fn construct_mainnet_client_with_checkpoint(checkpoint: &str) -> eyre::Result<Client<FileDB>> {
+pub async fn construct_mainnet_client_with_checkpoint(
+    checkpoint: &str,
+) -> eyre::Result<Client<FileDB>> {
     let benchmark_rpc_url = std::env::var("MAINNET_EXECUTION_RPC")?;
     let mut client = client::ClientBuilder::new()
         .network(networks::Network::MAINNET)
@@ -105,6 +106,6 @@ pub fn get_balance(
 
 // h/t @ https://github.com/smrpn
 // rev: https://github.com/smrpn/casbin-rs/commit/7a0a75d8075440ee65acdac3ee9c0de6fcbd5c48
-pub fn await_future<F: std::future::Future<Output=T>, T>(future: F) -> T {
+pub fn await_future<F: std::future::Future<Output = T>, T>(future: F) -> T {
     tokio::runtime::Runtime::new().unwrap().block_on(future)
 }
