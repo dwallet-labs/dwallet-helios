@@ -29,7 +29,14 @@ pub struct BeaconBlock {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(serde::Deserialize, serde::Serialize, Clone, Debug, SimpleSerialize, Default),
+        derive(
+            serde::Deserialize,
+            serde::Serialize,
+            Clone,
+            Debug,
+            SimpleSerialize,
+            Default
+        ),
         serde(deny_unknown_fields)
     )
 )]
@@ -76,7 +83,14 @@ pub struct BlsToExecutionChange {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(serde::Deserialize, serde::Serialize, Debug, Default, SimpleSerialize, Clone),
+        derive(
+            serde::Deserialize,
+            serde::Serialize,
+            Debug,
+            Default,
+            SimpleSerialize,
+            Clone
+        ),
         serde(deny_unknown_fields)
     )
 )]
@@ -234,12 +248,12 @@ pub struct Update {
 
 /// This struct is an equivalent to the `Update` struct, but with different header deserialization.
 /// The deserialization function `header_deserialize` is only deserializing `Header` from json.
-/// Since dWallet-network has a limit for transaction's input size, we need to send the updates as bcs
-/// rather than json.
+/// Since dWallet-network has a limit for transaction's input size, we need to send the updates as
+/// bcs rather than json.
 /// This is why we have this struct, which is used for deserializing the updates from bcs.
-/// We cannot give up on any of the structs since when we fetch updates from RPC, it is in json format.
-/// The same goes for `FinalityUpdateSerde`, `OptimisticUpdateSerde` and `UpdatesResponseSerde`
-/// as they are also sent to dWallet-network as parameters to a function.
+/// We cannot give up on any of the structs since when we fetch updates from RPC, it is in json
+/// format. The same goes for `FinalityUpdateSerde`, `OptimisticUpdateSerde` and
+/// `UpdatesResponseSerde` as they are also sent to dWallet-network as parameters to a function.
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct UpdateSerde {
     pub attested_header: Header,
@@ -458,7 +472,11 @@ impl Default for UpdatesResponse {
 impl From<UpdatesResponseSerde> for UpdatesResponse {
     fn from(value: UpdatesResponseSerde) -> UpdatesResponse {
         UpdatesResponse {
-            updates: value.updates.into_iter().map(|update| update.into()).collect(),
+            updates: value
+                .updates
+                .into_iter()
+                .map(|update| update.into())
+                .collect(),
             finality_update: value.finality_update.into(),
             optimistic_update: value.optimistic_update.into(),
         }
@@ -468,7 +486,11 @@ impl From<UpdatesResponseSerde> for UpdatesResponse {
 impl Into<UpdatesResponseSerde> for UpdatesResponse {
     fn into(self) -> UpdatesResponseSerde {
         UpdatesResponseSerde {
-            updates: self.updates.into_iter().map(|update| update.into()).collect(),
+            updates: self
+                .updates
+                .into_iter()
+                .map(|update| update.into())
+                .collect(),
             finality_update: self.finality_update.into(),
             optimistic_update: self.optimistic_update.into(),
         }

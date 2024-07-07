@@ -1,6 +1,6 @@
 use std::ops::Deref;
-use hex::encode;
 
+use hex::encode;
 use ssz_rs::prelude::*;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -77,8 +77,7 @@ impl<const N: usize> ssz_rs::Deserialize for ByteVector<N> {
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteVector<N> {}
 
-impl<const N: usize> serde::Serialize for ByteVector<N>
-{
+impl<const N: usize> serde::Serialize for ByteVector<N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -93,7 +92,8 @@ impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     where
         D: serde::Deserializer<'de>,
     {
-        let bytes: String = serde::Deserialize::deserialize(deserializer).unwrap_or_else(|e| "".to_string());
+        let bytes: String =
+            serde::Deserialize::deserialize(deserializer).unwrap_or_else(|e| "".to_string());
         if bytes.is_empty() {
             return Ok(Self::default());
         }
@@ -104,7 +104,7 @@ impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize )]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct ByteList<const N: usize> {
     inner: List<u8, N>,
 }
