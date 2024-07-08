@@ -1,13 +1,11 @@
-use serde::{Deserialize, Serialize};
-use std::default::Default;
-use std::fs;
-use std::net::{IpAddr, Ipv4Addr};
-use std::path::PathBuf;
+use std::{default::Default, fs, net::{IpAddr, Ipv4Addr}, path::PathBuf};
 use eyre::Report;
+use serde::{Serialize, Deserialize};
 
-use crate::utils::bytes_deserialize;
-use crate::types::{ChainConfig, Forks};
-use crate::utils::bytes_serialize;
+use crate::{
+    types::{ChainConfig, Forks},
+    utils::bytes_serialize,
+};
 
 /// The base configuration for a network.
 #[derive(Serialize, Deserialize)]
