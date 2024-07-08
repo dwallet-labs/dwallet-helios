@@ -258,9 +258,3 @@ impl<'de> serde::Deserialize<'de> for U64 {
         })
     }
 }
-
-impl<const N: usize> From<Option<ByteVector<N>>> for ByteVector<N> {
-    fn from(value: Option<ByteVector<N>>) -> Self {
-        value.unwrap_or_default()
-    }
-}
