@@ -1,9 +1,8 @@
 use std::ops::Deref;
-use hex::encode;
 
 use ssz_rs::prelude::*;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct ByteVector<const N: usize> {
     inner: Vector<u8, N>,
 }
@@ -76,17 +75,6 @@ impl<const N: usize> ssz_rs::Deserialize for ByteVector<N> {
 }
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteVector<N> {}
-
-impl<const N: usize> serde::Serialize for ByteVector<N>
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let bytes = encode(self.inner.as_slice());
-        Ok(serializer.serialize_str(format!("0x{}", bytes).as_str())?)
-    }
-}
 
 impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
