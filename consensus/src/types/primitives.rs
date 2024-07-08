@@ -1,4 +1,5 @@
 use std::ops::Deref;
+
 use ssz_rs::prelude::*;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]

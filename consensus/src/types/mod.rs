@@ -29,13 +29,7 @@ pub struct BeaconBlock {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(
-            serde::Deserialize,
-            Clone,
-            Debug,
-            SimpleSerialize,
-            Default
-        ),
+        derive(serde::Deserialize, Clone, Debug, SimpleSerialize, Default),
         serde(deny_unknown_fields)
     )
 )]
@@ -82,13 +76,7 @@ pub struct BlsToExecutionChange {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(
-            serde::Deserialize,
-            Debug,
-            Default,
-            SimpleSerialize,
-            Clone
-        ),
+        derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone),
         serde(deny_unknown_fields)
     )
 )]

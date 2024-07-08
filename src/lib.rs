@@ -68,8 +68,8 @@ pub mod config {
 
 pub mod types {
     pub use common::types::{Block, BlockTag, Transactions};
+    pub use consensus::types::{FinalityUpdate, OptimisticUpdate, Update, UpdatesResponse};
     pub use execution::types::{Account, CallOpts};
-    pub use consensus::types::{Update, FinalityUpdate, OptimisticUpdate, UpdatesResponse};
 }
 
 pub mod errors {
