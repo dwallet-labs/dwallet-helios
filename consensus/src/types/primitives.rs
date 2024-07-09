@@ -251,6 +251,8 @@ impl Deserialize for U64 {
 
 impl ssz_rs::SimpleSerialize for U64 {}
 
+// Added serialize implementation that fits the `deserialize` function (below).
+// Default `serde::serialize` implementation wouldn't serialize as expected.
 impl serde::Serialize for U64 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
