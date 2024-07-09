@@ -21,8 +21,8 @@ use crate::utils::{create_account_proof, extract_storage_proof};
 /// Interface of Ethereum light client for dwallet network
 pub struct EthLightClient {
     client: Client<FileDB>,
-    eth_state: EthState,
     consensus_rpc: NimbusRpc,
+    eth_state: EthState,
 }
 
 #[derive(Default, Clone)]
@@ -68,6 +68,10 @@ impl EthLightClient {
             eth_state,
             consensus_rpc,
         })
+    }
+    
+    pub fn get_eth_state(&self) -> &EthState {
+        &self.eth_state
     }
 
     async fn start(&mut self) -> Result<(), anyhow::Error> {
