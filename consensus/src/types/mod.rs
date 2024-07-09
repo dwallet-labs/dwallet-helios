@@ -4,7 +4,7 @@ use superstruct::superstruct;
 
 use self::{
     primitives::{ByteList, ByteVector, U64},
-    utils::{superstruct_ssz, u256_deserialize},
+    utils::{header_deserialize, superstruct_ssz, u256_deserialize},
 };
 
 pub mod primitives;
@@ -29,13 +29,7 @@ pub struct BeaconBlock {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(
-            serde::Deserialize,
-            Clone,
-            Debug,
-            SimpleSerialize,
-            Default
-        ),
+        derive(serde::Deserialize, Clone, Debug, SimpleSerialize, Default),
         serde(deny_unknown_fields)
     )
 )]
@@ -82,13 +76,7 @@ pub struct BlsToExecutionChange {
 #[superstruct(
     variants(Bellatrix, Capella, Deneb),
     variant_attributes(
-        derive(
-            serde::Deserialize,
-            Debug,
-            Default,
-            SimpleSerialize,
-            Clone
-        ),
+        derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone),
         serde(deny_unknown_fields)
     )
 )]
@@ -225,25 +213,30 @@ pub struct Eth1Data {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Bootstrap {
+    #[serde(deserialize_with = "header_deserialize")]
     pub header: Header,
     pub current_sync_committee: SyncCommittee,
     pub current_sync_committee_branch: Vec<Bytes32>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Default)]
 pub struct Update {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
     pub next_sync_committee: SyncCommittee,
     pub next_sync_committee_branch: Vec<Bytes32>,
+    #[serde(deserialize_with = "header_deserialize")]
     pub finalized_header: Header,
     pub finality_branch: Vec<Bytes32>,
     pub sync_aggregate: SyncAggregate,
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct FinalityUpdate {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
+    #[serde(deserialize_with = "header_deserialize")]
     pub finalized_header: Header,
     pub finality_branch: Vec<Bytes32>,
     pub sync_aggregate: SyncAggregate,
@@ -252,12 +245,13 @@ pub struct FinalityUpdate {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct OptimisticUpdate {
+    #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
     pub sync_aggregate: SyncAggregate,
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Default, SimpleSerialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
 pub struct Header {
     pub slot: U64,
     pub proposer_index: U64,

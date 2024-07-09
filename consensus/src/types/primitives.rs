@@ -1,7 +1,9 @@
 use std::ops::Deref;
+
+use hex::encode;
 use ssz_rs::prelude::*;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ByteVector<const N: usize> {
     inner: Vector<u8, N>,
 }
@@ -74,6 +76,18 @@ impl<const N: usize> Deserialize for ByteVector<N> {
 }
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteVector<N> {}
+
+// Added serialize implementation that fits the `deserialize` function (below).
+// Default `serde::serialize` implementation wouldn't serialize as expected.
+impl<const N: usize> serde::Serialize for ByteVector<N> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let bytes = encode(self.inner.as_slice());
+        serializer.serialize_str(format!("0x{}", bytes).as_str())
+    }
+}
 
 impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -256,11 +270,5 @@ impl<'de> serde::Deserialize<'de> for U64 {
         Ok(Self {
             inner: val.parse().unwrap_or_default(),
         })
-    }
-}
-
-impl<const N: usize> From<Option<ByteVector<N>>> for ByteVector<N> {
-    fn from(value: Option<ByteVector<N>>) -> Self {
-        value.unwrap_or_default()
     }
 }
