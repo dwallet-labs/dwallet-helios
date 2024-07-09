@@ -1,10 +1,16 @@
-use std::{default::Default, fs, net::{IpAddr, Ipv4Addr}, path::PathBuf};
+use std::{
+    default::Default,
+    fs,
+    net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
+};
+
 use eyre::Report;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     types::{ChainConfig, Forks},
-    utils::bytes_serialize,
+    utils::{bytes_deserialize, bytes_serialize},
 };
 
 /// The base configuration for a network.
