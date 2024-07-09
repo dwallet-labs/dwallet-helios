@@ -8,7 +8,7 @@ use ethers::{
 use serde::de::Error;
 use ssz_rs::prelude::*;
 
-use super::ExecutionPayload;
+use super::{ExecutionPayload, Header};
 
 pub fn u256_deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
 where
@@ -19,6 +19,30 @@ where
     let mut x_bytes = [0; 32];
     x.to_little_endian(&mut x_bytes);
     Ok(U256::from_bytes_le(x_bytes))
+}
+
+pub fn header_deserialize<'de, D>(deserializer: D) -> Result<Header, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let header: LightClientHeader = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(match header {
+        LightClientHeader::Unwrapped(header) => header,
+        LightClientHeader::Wrapped(header) => header.beacon,
+    })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum LightClientHeader {
+    Unwrapped(Header),
+    Wrapped(Beacon),
+}
+
+#[derive(serde::Deserialize)]
+struct Beacon {
+    beacon: Header,
 }
 
 macro_rules! superstruct_ssz {
