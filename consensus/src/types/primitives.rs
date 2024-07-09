@@ -1,4 +1,5 @@
 use std::ops::Deref;
+
 use hex::encode;
 use ssz_rs::prelude::*;
 
