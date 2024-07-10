@@ -12,6 +12,10 @@ use crate::{
     utils::{bytes_deserialize, bytes_serialize},
 };
 
+const SUI_DIR: &str = ".dwallet";
+pub const SUI_CONFIG_DIR: &str = "dwallet_config";
+pub const ETH_LOCAL_NETWORK_CONFIG: &str = "eth_config.yaml";
+
 /// The base configuration for a network.
 #[derive(Serialize, Deserialize)]
 pub struct BaseConfig {
@@ -55,8 +59,8 @@ impl Default for BaseConfig {
 
 impl BaseConfig {
     pub fn from_yaml_file() -> anyhow::Result<Self> {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        // path.push(relative_path);
+        let mut path = sui_config_dir()?;
+        path.push(ETH_LOCAL_NETWORK_CONFIG);
 
         let file_content = fs::read_to_string(path)?;
         let mut config: BaseConfig = serde_yaml::from_str(&file_content)?;
@@ -72,18 +76,6 @@ fn default_ipv4() -> IpAddr {
     IpAddr::V4(Ipv4Addr::LOCALHOST)
 }
 
-
-const SUI_DIR: &str = ".dwallet";
-pub const SUI_CONFIG_DIR: &str = "dwallet_config";
-pub const SUI_NETWORK_CONFIG: &str = "network.yaml";
-pub const SUI_FULLNODE_CONFIG: &str = "fullnode.yaml";
-pub const SUI_CLIENT_CONFIG: &str = "client.yaml";
-pub const SUI_KEYSTORE_FILENAME: &str = "dwallet.keystore";
-pub const SUI_KEYSTORE_ALIASES_FILENAME: &str = "dwallet.aliases";
-pub const SUI_BENCHMARK_GENESIS_GAS_KEYSTORE_FILENAME: &str = "benchmark.keystore";
-pub const SUI_GENESIS_FILENAME: &str = "genesis.blob";
-
-// todo:
 pub fn sui_config_dir() -> anyhow::Result<PathBuf> {
     match std::env::var_os("SUI_CONFIG_DIR") {
         Some(config_env) => Ok(config_env.into()),
@@ -92,10 +84,10 @@ pub fn sui_config_dir() -> anyhow::Result<PathBuf> {
             None => anyhow::bail!("Cannot obtain home directory path"),
         },
     }
-        .and_then(|dir| {
-            if !dir.exists() {
-                fs::create_dir_all(dir.clone())?;
-            }
-            Ok(dir)
-        })
+    .and_then(|dir| {
+        if !dir.exists() {
+            fs::create_dir_all(dir.clone())?;
+        }
+        Ok(dir)
+    })
 }
