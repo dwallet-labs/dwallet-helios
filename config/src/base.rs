@@ -8,9 +8,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CHECKPOINT_AGE_14_DAYS,
     types::{ChainConfig, Forks},
     utils::{bytes_deserialize, bytes_serialize},
+    CHECKPOINT_AGE_14_DAYS,
 };
 
 const SUI_DIR: &str = ".dwallet";

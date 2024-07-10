@@ -1,7 +1,8 @@
-use std::{fmt::Display, str::FromStr};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
+use std::{fmt::Display, str::FromStr};
 
+use common::utils::hex_str_to_bytes;
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
@@ -9,12 +10,10 @@ use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 use tracing::error;
 
-use common::utils::hex_str_to_bytes;
-
 use crate::{
     base::BaseConfig,
-    CHECKPOINT_AGE_14_DAYS,
     types::{ChainConfig, Fork, Forks},
+    CHECKPOINT_AGE_14_DAYS,
 };
 
 #[derive(
