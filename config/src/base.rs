@@ -13,8 +13,8 @@ use crate::{
 };
 
 const SUI_DIR: &str = ".dwallet";
-pub const SUI_CONFIG_DIR: &str = "dwallet_config";
-pub const ETH_LOCAL_NETWORK_CONFIG: &str = "eth_config.yaml";
+const SUI_CONFIG_DIR: &str = "dwallet_config";
+const ETH_LOCAL_NETWORK_CONFIG: &str = "eth_config.yaml";
 
 /// The base configuration for a network.
 #[derive(Serialize, Deserialize)]
