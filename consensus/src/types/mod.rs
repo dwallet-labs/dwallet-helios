@@ -323,7 +323,7 @@ impl From<&OptimisticUpdate> for GenericUpdate {
         }
     }
 }
-/// Aggregate all update types that are needed to verify and apply a new Ethereum state.
+/// Holds an aggregate of all update types that are needed to verify and apply a new Ethereum state.
 #[derive(Debug)]
 pub struct AggregateUpdates {
     pub updates: Vec<Update>,
