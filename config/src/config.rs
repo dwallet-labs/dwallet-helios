@@ -6,17 +6,17 @@ use std::{
 };
 
 use figment::{
-    providers::{Format, Serialized, Toml},
     Figment,
+    providers::{Format, Serialized, Toml},
 };
 use serde::Deserialize;
 
 use crate::{
     base::BaseConfig,
     cli::CliConfig,
+    Network,
     types::{ChainConfig, Forks},
     utils::{bytes_deserialize, bytes_opt_deserialize},
-    Network,
 };
 
 #[derive(Deserialize, Debug, Default)]
