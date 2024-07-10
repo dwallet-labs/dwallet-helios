@@ -1,6 +1,6 @@
 use std::ops::Deref;
-use hex::encode;
 
+use hex::encode;
 use ssz_rs::prelude::*;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -25,7 +25,7 @@ impl<const N: usize> Deref for ByteVector<N> {
 impl<const N: usize> TryFrom<Vec<u8>> for ByteVector<N> {
     type Error = eyre::Report;
 
-    fn try_from(value: Vec<u8>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         Ok(Self {
             inner: Vector::try_from(value).map_err(|(_, err)| err)?,
         })
@@ -35,37 +35,37 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteVector<N> {
 impl<const N: usize> TryFrom<&[u8]> for ByteVector<N> {
     type Error = eyre::Report;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Ok(Self {
             inner: Vector::try_from(value.to_vec()).map_err(|(_, err)| err)?,
         })
     }
 }
 
-impl<const N: usize> ssz_rs::Merkleized for ByteVector<N> {
-    fn hash_tree_root(&mut self) -> std::result::Result<Node, MerkleizationError> {
+impl<const N: usize> Merkleized for ByteVector<N> {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
         self.inner.hash_tree_root()
     }
 }
 
-impl<const N: usize> ssz_rs::Sized for ByteVector<N> {
-    fn size_hint() -> usize {
-        0
-    }
-
+impl<const N: usize> Sized for ByteVector<N> {
     fn is_variable_size() -> bool {
         false
     }
+
+    fn size_hint() -> usize {
+        0
+    }
 }
 
-impl<const N: usize> ssz_rs::Serialize for ByteVector<N> {
-    fn serialize(&self, buffer: &mut Vec<u8>) -> std::result::Result<usize, SerializeError> {
+impl<const N: usize> Serialize for ByteVector<N> {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
         self.inner.serialize(buffer)
     }
 }
 
-impl<const N: usize> ssz_rs::Deserialize for ByteVector<N> {
-    fn deserialize(encoding: &[u8]) -> std::result::Result<Self, DeserializeError>
+impl<const N: usize> Deserialize for ByteVector<N> {
+    fn deserialize(encoding: &[u8]) -> Result<Self, DeserializeError>
     where
         Self: std::marker::Sized,
     {
@@ -77,23 +77,23 @@ impl<const N: usize> ssz_rs::Deserialize for ByteVector<N> {
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteVector<N> {}
 
-impl<const N: usize> serde::Serialize for ByteVector<N>
-{
+impl<const N: usize> serde::Serialize for ByteVector<N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let bytes = encode(self.inner.as_slice());
-        Ok(serializer.serialize_str(format!("0x{}", bytes).as_str())?)
+        serializer.serialize_str(format!("0x{}", bytes).as_str())
     }
 }
 
 impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let bytes: String = serde::Deserialize::deserialize(deserializer).unwrap_or_else(|e| "".to_string());
+        let bytes: String =
+            serde::Deserialize::deserialize(deserializer).unwrap_or_else(|_| String::default());
         if bytes.is_empty() {
             return Ok(Self::default());
         }
@@ -104,7 +104,7 @@ impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize )]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct ByteList<const N: usize> {
     inner: List<u8, N>,
 }
@@ -126,7 +126,7 @@ impl<const N: usize> Deref for ByteList<N> {
 impl<const N: usize> TryFrom<Vec<u8>> for ByteList<N> {
     type Error = eyre::Report;
 
-    fn try_from(value: Vec<u8>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         Ok(Self {
             inner: List::try_from(value).map_err(|(_, err)| err)?,
         })
@@ -136,37 +136,37 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteList<N> {
 impl<const N: usize> TryFrom<&[u8]> for ByteList<N> {
     type Error = eyre::Report;
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Ok(Self {
             inner: List::try_from(value.to_vec()).map_err(|(_, err)| err)?,
         })
     }
 }
 
-impl<const N: usize> ssz_rs::Merkleized for ByteList<N> {
-    fn hash_tree_root(&mut self) -> std::result::Result<Node, MerkleizationError> {
+impl<const N: usize> Merkleized for ByteList<N> {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
         self.inner.hash_tree_root()
     }
 }
 
-impl<const N: usize> ssz_rs::Sized for ByteList<N> {
-    fn size_hint() -> usize {
-        0
-    }
-
+impl<const N: usize> Sized for ByteList<N> {
     fn is_variable_size() -> bool {
         false
     }
+
+    fn size_hint() -> usize {
+        0
+    }
 }
 
-impl<const N: usize> ssz_rs::Serialize for ByteList<N> {
-    fn serialize(&self, buffer: &mut Vec<u8>) -> std::result::Result<usize, SerializeError> {
+impl<const N: usize> Serialize for ByteList<N> {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
         self.inner.serialize(buffer)
     }
 }
 
-impl<const N: usize> ssz_rs::Deserialize for ByteList<N> {
-    fn deserialize(encoding: &[u8]) -> std::result::Result<Self, DeserializeError>
+impl<const N: usize> Deserialize for ByteList<N> {
+    fn deserialize(encoding: &[u8]) -> Result<Self, DeserializeError>
     where
         Self: std::marker::Sized,
     {
@@ -179,7 +179,7 @@ impl<const N: usize> ssz_rs::Deserialize for ByteList<N> {
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteList<N> {}
 
 impl<'de, const N: usize> serde::Deserialize<'de> for ByteList<N> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -214,30 +214,30 @@ impl From<u64> for U64 {
     }
 }
 
-impl ssz_rs::Merkleized for U64 {
-    fn hash_tree_root(&mut self) -> std::result::Result<Node, MerkleizationError> {
+impl Merkleized for U64 {
+    fn hash_tree_root(&mut self) -> Result<Node, MerkleizationError> {
         self.inner.hash_tree_root()
     }
 }
 
-impl ssz_rs::Sized for U64 {
-    fn size_hint() -> usize {
-        0
-    }
-
+impl Sized for U64 {
     fn is_variable_size() -> bool {
         false
     }
+
+    fn size_hint() -> usize {
+        0
+    }
 }
 
-impl ssz_rs::Serialize for U64 {
-    fn serialize(&self, buffer: &mut Vec<u8>) -> std::result::Result<usize, SerializeError> {
+impl Serialize for U64 {
+    fn serialize(&self, buffer: &mut Vec<u8>) -> Result<usize, SerializeError> {
         self.inner.serialize(buffer)
     }
 }
 
-impl ssz_rs::Deserialize for U64 {
-    fn deserialize(encoding: &[u8]) -> std::result::Result<Self, DeserializeError>
+impl Deserialize for U64 {
+    fn deserialize(encoding: &[u8]) -> Result<Self, DeserializeError>
     where
         Self: std::marker::Sized,
     {
@@ -255,12 +255,12 @@ impl serde::Serialize for U64 {
         S: serde::Serializer,
     {
         let string = self.inner.to_string();
-        Ok(serializer.serialize_str(string.as_str())?)
+        serializer.serialize_str(string.as_str())
     }
 }
 
 impl<'de> serde::Deserialize<'de> for U64 {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -268,14 +268,5 @@ impl<'de> serde::Deserialize<'de> for U64 {
         Ok(Self {
             inner: val.parse().unwrap_or_default(),
         })
-    }
-}
-
-impl<const N: usize> From<Option<ByteVector<N>>> for ByteVector<N> {
-    fn from(value: std::option::Option<ByteVector<N>>) -> Self {
-        match value {
-            Some(value) => ByteVector::try_from(value).unwrap_or_default(),
-            None => ByteVector::default(),
-        }
     }
 }
