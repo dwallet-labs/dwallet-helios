@@ -64,8 +64,7 @@ impl Default for BaseConfig {
 impl BaseConfig {
     /// Load local network configuration from Yaml file.
     pub fn from_yaml_file() -> anyhow::Result<Self> {
-        let mut path = sui_config_dir()?;
-        path.push(ETH_LOCAL_NETWORK_CONFIG);
+        let path = sui_config_dir()?.join(ETH_LOCAL_NETWORK_CONFIG);
 
         let file_content = fs::read_to_string(path)?;
         let mut config: BaseConfig = serde_yaml::from_str(&file_content)?;
