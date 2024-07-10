@@ -325,8 +325,11 @@ impl From<&OptimisticUpdate> for GenericUpdate {
 }
 /// A struct to aggregate all update types that are needed to verify and apply new Ethereum state.
 #[derive(Debug)]
-pub struct UpdatesResponse {
+/// Aggregate all update types that are needed to verify and apply a new Ethereum state.
+#[derive(Debug)]
+pub struct AggregateUpdates {
     pub updates: Vec<Update>,
     pub finality_update: FinalityUpdate,
     pub optimistic_update: OptimisticUpdate,
 }
+
