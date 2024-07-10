@@ -16,9 +16,11 @@ use crate::{
 const SUI_DIR: &str = ".dwallet";
 const SUI_CONFIG_DIR: &str = "dwallet_config";
 const ETH_LOCAL_NETWORK_CONFIG: &str = "eth_config.yaml";
+const ENV_SUI_CONFIG_DIR: &str = "SUI_CONFIG_DIR";
 
 /// The base configuration for a network.
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug))]
 pub struct BaseConfig {
     #[serde(default = "default_ipv4")]
     pub rpc_bind_ip: IpAddr,
@@ -82,7 +84,7 @@ fn default_ipv4() -> IpAddr {
 /// Get the Sui config directory.
 /// If the directory does not exist, it will be created.
 pub fn sui_config_dir() -> anyhow::Result<PathBuf> {
-    std::env::var_os("SUI_CONFIG_DIR")
+    std::env::var_os(ENV_SUI_CONFIG_DIR)
         .map(Into::into)
         .or_else(|| dirs::home_dir().map(|home| home.join(SUI_DIR).join(SUI_CONFIG_DIR)))
         .ok_or_else(|| anyhow::anyhow!("cannot get the home directory path"))
@@ -92,4 +94,102 @@ pub fn sui_config_dir() -> anyhow::Result<PathBuf> {
             }
             Ok(dir)
         })
+}
+
+#[cfg(test)]
+mod test {
+    use std::{env, fs, io::Write, net::Ipv4Addr, path::PathBuf};
+
+    use common::utils::hex_str_to_bytes;
+    use tempdir::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn test_config_from_yaml_success() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
+        unsafe {
+            env::set_var(ENV_SUI_CONFIG_DIR, path.to_str().unwrap());
+        }
+
+        let base_config = BaseConfig::from_yaml_file().unwrap();
+
+        assert_eq!(
+            Some("http://localhost:3500".to_string()),
+            base_config.consensus_rpc,
+        );
+
+        assert_eq!(8545, base_config.rpc_port);
+        assert_eq!(Ipv4Addr::new(0, 0, 0, 0), base_config.rpc_bind_ip);
+        assert_eq!(
+            hex_str_to_bytes("0xb3b5d384704782ab9e17969ad692340b1f8952baf5e8089b8317fc45f6b360e3")
+                .unwrap(),
+            base_config.default_checkpoint
+        );
+        assert_eq!(32382, base_config.chain.chain_id);
+        assert_eq!(1720442031, base_config.chain.genesis_time);
+        assert_eq!(
+            hex_str_to_bytes("0x83431ec7fcf92cfc44947fc0418e831c25e1d0806590231c439830db7ad54fda")
+                .unwrap(),
+            base_config.chain.genesis_root
+        );
+        assert_eq!(0, base_config.forks.genesis.epoch);
+        assert_eq!(
+            hex_str_to_bytes("0x20000089").unwrap(),
+            base_config.forks.genesis.fork_version
+        );
+        assert_eq!(0, base_config.forks.altair.epoch);
+        assert_eq!(
+            hex_str_to_bytes("0x20000090").unwrap(),
+            base_config.forks.altair.fork_version
+        );
+        assert_eq!(0, base_config.forks.bellatrix.epoch);
+        assert_eq!(
+            hex_str_to_bytes("0x20000091").unwrap(),
+            base_config.forks.bellatrix.fork_version
+        );
+        assert_eq!(0, base_config.forks.capella.epoch);
+        assert_eq!(
+            hex_str_to_bytes("0x20000092").unwrap(),
+            base_config.forks.capella.fork_version
+        );
+        assert_eq!(132608, base_config.forks.deneb.epoch);
+        assert_eq!(
+            hex_str_to_bytes("0x20000093").unwrap(),
+            base_config.forks.deneb.fork_version
+        );
+    }
+
+    #[test]
+    fn test_config_from_yaml_fail() {
+        // Load config file manually.
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join(ETH_LOCAL_NETWORK_CONFIG);
+
+        // Read file and replace chain_id with invalid value.
+        let file_content = fs::read_to_string(path).unwrap();
+        let modified_file = file_content.replace("chain_id: 32382", "chain_id: ~");
+
+        // Create a temporary directory and write the modified file to it.
+        let temp_dir = TempDir::new("dwallet_config").unwrap();
+        let path_to_broken_config = temp_dir.path().join(ETH_LOCAL_NETWORK_CONFIG);
+        let mut broken_config_file = fs::File::create(&path_to_broken_config).unwrap();
+        broken_config_file
+            .write_all(modified_file.as_bytes())
+            .unwrap();
+
+        // Set env variable to the temporary directory.
+        unsafe {
+            env::set_var(ENV_SUI_CONFIG_DIR, temp_dir.path());
+        }
+        let base_config = BaseConfig::from_yaml_file();
+        assert_eq!(
+            "chain.chain_id: invalid type: unit value, expected u64 at line 7 column 13",
+            base_config.unwrap_err().to_string(),
+        );
+
+        drop(broken_config_file);
+        temp_dir.close().unwrap();
+    }
 }
