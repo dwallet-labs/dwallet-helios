@@ -77,8 +77,6 @@ impl<const N: usize> Deserialize for ByteVector<N> {
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteVector<N> {}
 
-// Added serialize implementation that fits the `deserialize` function (below).
-// Default `serde::serialize` implementation wouldn't serialize as expected.
 impl<const N: usize> serde::Serialize for ByteVector<N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -251,8 +249,6 @@ impl Deserialize for U64 {
 
 impl ssz_rs::SimpleSerialize for U64 {}
 
-// Added serialize implementation that fits the `deserialize` function (below).
-// Default `serde::serialize` implementation wouldn't serialize as expected.
 impl serde::Serialize for U64 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
