@@ -837,6 +837,7 @@ dependencies = [
  "serde",
  "serde_yaml",
  "strum",
+ "strum_macros",
  "tempdir",
  "thiserror",
  "tokio",

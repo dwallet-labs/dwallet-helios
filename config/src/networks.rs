@@ -1,19 +1,20 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-use std::{fmt::Display, str::FromStr};
 
-use common::utils::hex_str_to_bytes;
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
+use strum_macros::{Display, EnumString};
 use tracing::error;
+
+use common::utils::hex_str_to_bytes;
 
 use crate::{
     base::BaseConfig,
-    types::{ChainConfig, Fork, Forks},
     CHECKPOINT_AGE_14_DAYS,
+    types::{ChainConfig, Fork, Forks},
 };
 
 #[derive(
@@ -29,43 +30,21 @@ use crate::{
     PartialOrd,
     Ord,
     Default,
+    EnumString,
+    Display,
 )]
 pub enum Network {
     #[default]
+    #[strum(to_string = "mainnet")]
     MAINNET,
+    #[strum(to_string = "goerli")]
     GOERLI,
+    #[strum(to_string = "sepolia")]
     SEPOLIA,
+    #[strum(to_string = "holesky")]
     HOLESKY,
+    #[strum(to_string = "local")]
     LOCAL,
-}
-
-impl FromStr for Network {
-    type Err = eyre::Report;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "mainnet" => Ok(Self::MAINNET),
-            "goerli" => Ok(Self::GOERLI),
-            "sepolia" => Ok(Self::SEPOLIA),
-            "holesky" => Ok(Self::HOLESKY),
-            "local" => Ok(Self::LOCAL),
-            _ => Err(eyre::eyre!("network wasn't recognized.")),
-        }
-    }
-}
-
-impl Display for Network {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            Self::MAINNET => "mainnet",
-            Self::GOERLI => "goerli",
-            Self::SEPOLIA => "sepolia",
-            Self::HOLESKY => "holesky",
-            Self::LOCAL => "local",
-        };
-
-        f.write_str(str)
-    }
 }
 
 impl Network {
