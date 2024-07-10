@@ -824,6 +824,7 @@ dependencies = [
 name = "config"
 version = "0.5.5"
 dependencies = [
+ "anyhow",
  "common",
  "dirs",
  "ethers",

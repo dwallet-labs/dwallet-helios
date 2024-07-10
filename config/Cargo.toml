@@ -19,6 +19,7 @@ serde_yaml = "0.9.14"
 strum = { version = "0.26.2", features = ["derive"] }
 
 common = { path = "../common" }
+anyhow.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio.workspace = true

@@ -1,13 +1,14 @@
+use std::{fmt::Display, str::FromStr};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-use std::{fmt::Display, str::FromStr};
 
-use common::utils::hex_str_to_bytes;
 #[cfg(not(target_arch = "wasm32"))]
 use dirs::home_dir;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
+
+use common::utils::hex_str_to_bytes;
 
 use crate::{
     base::BaseConfig,
@@ -20,7 +21,7 @@ pub enum Network {
     GOERLI,
     SEPOLIA,
     HOLESKY,
-    DEVNET(String),
+    LOCAL,
 }
 
 impl FromStr for Network {
@@ -32,8 +33,8 @@ impl FromStr for Network {
             "goerli" => Ok(Self::GOERLI),
             "sepolia" => Ok(Self::SEPOLIA),
             "holesky" => Ok(Self::HOLESKY),
-            "devnet" => Ok(Self::DEVNET(String::default())),
-            _ => Err(eyre::eyre!("network not recognized")),
+            "local" => Ok(Self::LOCAL),
+            _ => Err(eyre::eyre!("network wasn't recognized.")),
         }
     }
 }
@@ -45,7 +46,7 @@ impl Display for Network {
             Self::GOERLI => "goerli",
             Self::SEPOLIA => "sepolia",
             Self::HOLESKY => "holesky",
-            Self::DEVNET(_) => "devnet",
+            Self::LOCAL => "local",
         };
 
         f.write_str(str)
@@ -65,7 +66,7 @@ impl Network {
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
             Self::HOLESKY => holesky(),
-            Self::DEVNET(relative_path) => devnet(relative_path),
+            Self::LOCAL => local(),
         }
     }
 
@@ -81,7 +82,7 @@ impl Network {
 
     pub fn with_devnet_config_path(&self, path: String) -> Self {
         match self {
-            Self::DEVNET(_) => Self::DEVNET(path),
+            Self::LOCAL(_) => Self::LOCAL(path),
             _ => self.clone(),
         }
     }
@@ -92,7 +93,7 @@ pub fn mainnet() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0xc7fc7b2f4b548bfc9305fa80bc1865ddc6eea4557f0a80507af5dc34db7bd9ce",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: Some("https://www.lightclientdata.org".to_string()),
         chain: ChainConfig {
@@ -101,7 +102,7 @@ pub fn mainnet() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0x4b363db94e286120d76eb905340fdd4e54bfe9f06bf33ff6cf5ad27f511bfe95",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -137,7 +138,7 @@ pub fn goerli() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0xf6e9d5fdd7c406834e888961beab07b2443b64703c36acc1274ae1ce8bb48839",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
@@ -146,7 +147,7 @@ pub fn goerli() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0x043db0d9a83813551ee2f33450d23797757d430911a9320530ad8a0eabc43efb",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -182,7 +183,7 @@ pub fn sepolia() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0x4135bf01bddcfadac11143ba911f1c7f0772fdd6b87742b0bc229887bbf62b48",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
@@ -191,7 +192,7 @@ pub fn sepolia() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0xd8ea171f3c94aea21ebc42a1ed61052acf3f9209c00e4efbaaddac09ed9b8078",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -227,7 +228,7 @@ pub fn holesky() -> BaseConfig {
         default_checkpoint: hex_str_to_bytes(
             "0xd8fad84478f4947c3d09cfefde36d09bb9e71217f650610a3eb730eba54cdf1f",
         )
-        .unwrap(),
+            .unwrap(),
         rpc_port: 8545,
         consensus_rpc: None,
         chain: ChainConfig {
@@ -236,7 +237,7 @@ pub fn holesky() -> BaseConfig {
             genesis_root: hex_str_to_bytes(
                 "0x9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1",
             )
-            .unwrap(),
+                .unwrap(),
         },
         forks: Forks {
             genesis: Fork {
@@ -267,8 +268,9 @@ pub fn holesky() -> BaseConfig {
     }
 }
 
-pub fn devnet(relative_path: &str) -> BaseConfig {
-    BaseConfig::from_yaml_file(relative_path).unwrap()
+pub fn local() -> BaseConfig {
+    // todo: DO NOT USE UNWRAP, HANDLE AND PRINT ERROR.
+    BaseConfig::from_yaml_file().unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
