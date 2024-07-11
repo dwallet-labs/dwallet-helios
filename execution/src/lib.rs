@@ -9,4 +9,4 @@ mod execution;
 pub use crate::execution::*;
 
 mod proof;
-pub mod utils;
+pub mod contract_interactions;
