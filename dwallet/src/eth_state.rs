@@ -8,14 +8,14 @@ use config::Network;
 use consensus::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
     errors::ConsensusError,
-    get_bits, get_participating_keys, is_current_committee_proof_valid, is_finality_proof_valid,
-    is_next_committee_proof_valid,
+    get_bits, get_participating_keys, is_current_committee_proof_valid,
     rpc::{nimbus_rpc::NimbusRpc, ConsensusRpc},
     types::{
         primitives::U64, AggregateUpdates, BLSPubKey, Bootstrap, Bytes32, FinalityUpdate,
         GenericUpdate, Header, OptimisticUpdate, SignatureBytes, SyncCommittee, Update,
     },
     utils::{calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid},
+    validate_finality_proof, validate_next_sync_committee_proof,
 };
 use ethers::utils::hex::ToHexExt;
 use eyre::{anyhow, eyre, Error};
@@ -127,7 +127,7 @@ impl EthState {
     pub async fn get_updates(
         &mut self,
         current_state_checkpoint: &str,
-    ) -> Result<AggregateUpdates, eyre::Error> {
+    ) -> Result<AggregateUpdates, Error> {
         let rpc = NimbusRpc::new(&self.rpc);
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
@@ -241,7 +241,11 @@ impl EthState {
             &bootstrap.current_sync_committee_branch,
         );
 
-        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
+        let header_hash = bootstrap
+            .header
+            .hash_tree_root()
+            .map_err(|e| eyre!(e))?
+            .to_string();
         let expected_hash = checkpoint.to_string();
         let header_valid = header_hash == checkpoint;
 
@@ -402,7 +406,7 @@ impl EthState {
 
                 if self.finalized_header.slot.as_u64() % 32 == 0 {
                     let checkpoint_res = self.finalized_header.hash_tree_root();
-                    if let std::prelude::rust_2015::Ok(checkpoint) = checkpoint_res {
+                    if let Ok(checkpoint) = checkpoint_res {
                         self.last_checkpoint = format!("0x{:?}", checkpoint.as_ref());
                     }
                 }
@@ -497,28 +501,12 @@ impl EthState {
             return Err(ConsensusError::NotRelevant.into());
         }
 
-        if update.finalized_header.is_some() && update.finality_branch.is_some() {
-            let is_valid = is_finality_proof_valid(
-                &update.attested_header,
-                &mut update.finalized_header.clone().unwrap(),
-                &update.finality_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidFinalityProof.into());
-            }
+        if !validate_finality_proof(update) {
+            return Err(ConsensusError::InvalidFinalityProof.into());
         }
 
-        if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
-            let is_valid = is_next_committee_proof_valid(
-                &update.attested_header,
-                &mut update.next_sync_committee.clone().unwrap(),
-                &update.next_sync_committee_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
-            }
+        if !validate_next_sync_committee_proof(update) {
+            return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
         }
 
         let sync_committee = if update_sig_period == store_period {
@@ -535,7 +523,7 @@ impl EthState {
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
             update.signature_slot,
-        );
+        )?;
 
         if !is_valid_sig {
             return Err(ConsensusError::InvalidSignature.into());
@@ -573,17 +561,18 @@ impl EthState {
         attested_header: &Header,
         signature: &SignatureBytes,
         signature_slot: u64,
-    ) -> bool {
-        let res: Result<bool, Error> = (move || {
-            let pks: Vec<&PublicKey> = pks.iter().collect();
-            let header_root =
-                Bytes32::try_from(attested_header.clone().hash_tree_root()?.as_ref())?;
-            let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
+    ) -> Result<bool, Error> {
+        let pks: Vec<&PublicKey> = pks.iter().collect();
+        let header_root = Bytes32::try_from(
+            attested_header
+                .clone()
+                .hash_tree_root()
+                .map_err(|e| eyre!(e))?
+                .as_ref(),
+        )?;
+        let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
 
-            Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
-        })();
-
-        res.unwrap_or(false)
+        Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node, Error> {
@@ -597,8 +586,8 @@ impl EthState {
             .unwrap();
 
         let domain_type = &hex::decode("07000000")?[..];
-        let fork_version =
-            Vector::try_from(Self::fork_version(self.network, slot)).map_err(|(_, err)| err)?;
+        let fork_version = Vector::try_from(Self::fork_version(self.network, slot))
+            .map_err(|(_, err)| eyre!(err))?;
         let domain = compute_domain(domain_type, fork_version, genesis_root)?;
         compute_signing_root(header, domain)
     }
@@ -620,7 +609,7 @@ impl EthState {
         }
     }
 
-// Determines `blockhash_slot` age and returns true if it is less than 14 days old.
+    // Determines `blockhash_slot` age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
