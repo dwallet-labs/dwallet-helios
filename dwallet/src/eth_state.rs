@@ -75,7 +75,7 @@ impl EthState {
 
     /// Sets the checkpoint for the Ethereum state.
     ///
-    /// This method is used to set the last known checkpoint for the Ethereum state. The checkpoint
+    /// Set the last known checkpoint for the Ethereum state. The checkpoint
     /// is a string that represents a specific point in the blockchain history, typically a
     /// beacon block hash.
     pub fn set_checkpoint(&mut self, checkpoint: String) -> Self {
@@ -85,7 +85,7 @@ impl EthState {
 
     /// Sets the network for the Ethereum state.
     ///
-    /// This method is used to set the network for the Ethereum state. The network is an enum that
+    /// Set the network for the Ethereum state. The network is an enum that
     /// represents the specific Ethereum network (e.g., Mainnet, Holesky, devnet, etc.).
     pub fn set_network(&mut self, network: Network) -> Self {
         self.network = network;
@@ -94,7 +94,7 @@ impl EthState {
 
     /// Sets the RPC endpoint for the Ethereum state.
     ///
-    /// This method is used to set the RPC endpoint for the Ethereum state.
+    /// Set the RPC endpoint for the Ethereum state.
     /// The RPC endpoint is a string that represents the URL of the Ethereum node that the client
     /// will connect to.
     pub fn set_rpc(&mut self, rpc: String) -> Self {
