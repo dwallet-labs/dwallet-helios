@@ -9,14 +9,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     types::{ChainConfig, Forks},
-    utils::{bytes_deserialize, bytes_serialize},
-    CHECKPOINT_AGE_14_DAYS,
+    utils::{bytes_deserialize, bytes_serialize, default_max_checkpoint_age},
 };
 
-const SUI_DIR: &str = ".dwallet";
-const SUI_CONFIG_DIR: &str = "dwallet_config";
+/// Directory name for dWallet configuration files.
+const DWALLET_DIR: &str = ".dwallet";
+
+/// Subdirectory name within the dWallet configuration directory.
+const DWALLET_CONFIG_DIR: &str = "dwallet_config";
+
+/// Filename for the Ethereum local network configuration file.
 const ETH_LOCAL_NETWORK_CONFIG: &str = "eth_config.yaml";
-const ENV_SUI_CONFIG_DIR: &str = "SUI_CONFIG_DIR";
+
+/// Environment variable name for specifying the Sui configuration directory.
+const ENV_DWALLET_CONFIG_DIR: &str = "DWALLET_CONFIG_DIR";
 
 /// The base configuration for a network.
 #[derive(Serialize, Deserialize)]
@@ -33,7 +39,7 @@ pub struct BaseConfig {
     pub default_checkpoint: Vec<u8>,
     pub chain: ChainConfig,
     pub forks: Forks,
-    #[serde(default)]
+    #[serde(default = "default_max_checkpoint_age")]
     pub max_checkpoint_age: u64,
     #[serde(default)]
     pub data_dir: Option<PathBuf>,
@@ -64,14 +70,11 @@ impl Default for BaseConfig {
 impl BaseConfig {
     /// Load local network configuration from Yaml file.
     pub fn from_yaml_file() -> anyhow::Result<Self> {
-        let path = sui_config_dir()?.join(ETH_LOCAL_NETWORK_CONFIG);
+        let path = dwallet_config_dir()?.join(ETH_LOCAL_NETWORK_CONFIG);
 
         let file_content = fs::read_to_string(path)?;
-        let mut config: BaseConfig = serde_yaml::from_str(&file_content)?;
+        let config: BaseConfig = serde_yaml::from_str(&file_content)?;
 
-        if config.max_checkpoint_age == 0 {
-            config.max_checkpoint_age = CHECKPOINT_AGE_14_DAYS;
-        }
         Ok(config)
     }
 }
@@ -82,10 +85,10 @@ fn default_ipv4() -> IpAddr {
 
 /// Get the Sui config directory.
 /// If the directory does not exist, it will be created.
-pub fn sui_config_dir() -> anyhow::Result<PathBuf> {
-    std::env::var_os(ENV_SUI_CONFIG_DIR)
+pub fn dwallet_config_dir() -> anyhow::Result<PathBuf> {
+    std::env::var_os(ENV_DWALLET_CONFIG_DIR)
         .map(Into::into)
-        .or_else(|| dirs::home_dir().map(|home| home.join(SUI_DIR).join(SUI_CONFIG_DIR)))
+        .or_else(|| dirs::home_dir().map(|home| home.join(DWALLET_DIR).join(DWALLET_CONFIG_DIR)))
         .ok_or_else(|| anyhow::anyhow!("cannot get the home directory path"))
         .and_then(|dir| {
             if !dir.exists() {
@@ -108,7 +111,7 @@ mod test {
     fn test_config_from_yaml_success() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
         unsafe {
-            env::set_var(ENV_SUI_CONFIG_DIR, path.to_str().unwrap());
+            env::set_var(ENV_DWALLET_CONFIG_DIR, path.to_str().unwrap());
         }
 
         let base_config = BaseConfig::from_yaml_file().unwrap();
@@ -180,7 +183,7 @@ mod test {
 
         // Set env variable to the temporary directory.
         unsafe {
-            env::set_var(ENV_SUI_CONFIG_DIR, temp_dir.path());
+            env::set_var(ENV_DWALLET_CONFIG_DIR, temp_dir.path());
         }
         let base_config = BaseConfig::from_yaml_file();
         assert_eq!(
