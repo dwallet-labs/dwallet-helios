@@ -10,16 +10,18 @@ use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt,
 use eyre::{eyre, Result};
 
 use common::types::{Block, BlockTag};
-use config::Config;
+use config::{networks::Network, Config};
+use consensus::database::Database;
+use ethers::{
+    prelude::{Address, U256},
+    types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256},
+};
 use execution::types::CallOpts;
+use eyre::{eyre, Result};
 use tracing::{info, warn};
 use zduny_wasm_timer::Delay;
 
 use crate::node::Node;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::PathBuf;
-
 #[cfg(not(target_arch = "wasm32"))]
 use crate::rpc::Rpc;
 

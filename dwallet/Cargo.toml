@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 eyre.workspace = true
+ethers.workspace = true
 serde.workspace = true
 hex.workspace = true
 tracing.workspace = true

@@ -104,7 +104,7 @@ impl CheckpointFallback {
     /// Build the checkpoint fallback service from the community-maintained list by [ethPandaOps](https://github.com/ethpandaops).
     ///
     /// The list is defined in [ethPandaOps/checkpoint-fallback-service](https://github.com/ethpandaops/checkpoint-sync-health-checks/blob/master/_data/endpoints.yaml).
-    pub async fn build(mut self) -> eyre::Result<Self> {
+    pub async fn build(mut self) -> Result<Self> {
         // Fetch the services
         let res = get(CHECKPOINT_SYNC_SERVICES_LIST).await?;
         let yaml = res.text().await?;
@@ -112,10 +112,10 @@ impl CheckpointFallback {
         // Parse the yaml content results.
         let list: serde_yaml::Value = serde_yaml::from_str(&yaml)?;
 
-        // Construct the services mapping from network <> list of services
+        // Construct the service mapping from a network to a list of services.
         let mut services = HashMap::new();
         for network in &self.networks {
-            // Try to parse list of checkpoint fallback services
+            // Try to parse a list of checkpoint fallback services.
             let service_list = list
                 .get(network.to_string().to_lowercase())
                 .ok_or_else(|| {
@@ -123,7 +123,7 @@ impl CheckpointFallback {
                 })?;
             let parsed: Vec<CheckpointFallbackService> =
                 serde_yaml::from_value(service_list.clone())?;
-            services.insert(network.clone(), parsed);
+            services.insert(*network, parsed);
         }
         self.services = services;
 
@@ -131,10 +131,7 @@ impl CheckpointFallback {
     }
 
     /// Fetch the latest checkpoint from the checkpoint fallback service.
-    pub async fn fetch_latest_checkpoint(
-        &self,
-        network: &crate::networks::Network,
-    ) -> eyre::Result<H256> {
+    pub async fn fetch_latest_checkpoint(&self, network: &networks::Network) -> Result<H256> {
         let services = &self.get_healthy_fallback_services(network);
         Self::fetch_latest_checkpoint_from_services(&services[..]).await
     }
@@ -149,8 +146,9 @@ impl CheckpointFallback {
     /// Fetch the latest checkpoint from a list of checkpoint fallback services.
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
-    ) -> eyre::Result<H256> {
-        // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
+    ) -> Result<H256> {
+        // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for
+        // each.
         let tasks: Vec<_> = services
             .iter()
             .map(|service| async move {
@@ -214,7 +212,7 @@ impl CheckpointFallback {
 
     /// Associated function to fetch the latest checkpoint from a specific checkpoint sync fallback
     /// service api url.
-    pub async fn fetch_checkpoint_from_api(url: &str) -> eyre::Result<H256> {
+    pub async fn fetch_checkpoint_from_api(url: &str) -> Result<H256> {
         // Fetch the url
         let constructed_url = Self::construct_url(url);
         let res = get(&constructed_url).await?;
@@ -232,7 +230,10 @@ impl CheckpointFallback {
     /// use config::CheckpointFallback;
     ///
     /// let url = CheckpointFallback::construct_url("https://sync-mainnet.beaconcha.in");
-    /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
+    /// assert_eq!(
+    ///     "https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots",
+    ///     url
+    /// );
     /// ```
     pub fn construct_url(endpoint: &str) -> String {
         format!("{endpoint}/checkpointz/v1/beacon/slots")
@@ -242,7 +243,8 @@ impl CheckpointFallback {
     ///
     /// ### Warning
     ///
-    /// These services are not healthchecked **nor** trustworthy and may act with malice by returning invalid checkpoints.
+    /// These services are not health checked **nor** trustworthy and may act with malice by
+    /// returning invalid checkpoints.
     pub fn get_all_fallback_endpoints(&self, network: &networks::Network) -> Vec<String> {
         self.services[network]
             .iter()
@@ -250,7 +252,7 @@ impl CheckpointFallback {
             .collect()
     }
 
-    /// Returns a list of healthchecked checkpoint fallback endpoints.
+    /// Returns a list of health checked checkpoint fallback endpoints.
     ///
     /// ### Warning
     ///
@@ -263,7 +265,7 @@ impl CheckpointFallback {
             .collect()
     }
 
-    /// Returns a list of healthchecked checkpoint fallback services.
+    /// Returns a list of health checked checkpoint fallback services.
     ///
     /// ### Warning
     ///
@@ -299,5 +301,5 @@ where
         s
     };
 
-    s.parse().map_err(D::Error::custom)
+    s.parse().map_err(Error::custom)
 }
