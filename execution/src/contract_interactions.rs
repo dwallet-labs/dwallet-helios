@@ -75,8 +75,8 @@ fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
 }
 
 /// Calculates the key for a given message and dWallet ID.
-/// In the smart contract, the key is calculated by hashing the message, and the dWallet ID together.
-/// The result is a H256 hash that represents the key.
+/// In the smart contract, the key is calculated by hashing the message, and the dWallet ID
+/// together. The result is a H256 hash that represents the key.
 #[allow(unused)]
 fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
     let mut hasher = Keccak256::new();
