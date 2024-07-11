@@ -1,11 +1,18 @@
 use std::collections::HashMap;
 
-use common::errors::BlockNotFoundError;
-use ethers::abi::AbiEncode;
-use ethers::prelude::Address;
-use ethers::types::{Filter, Log, Transaction, TransactionReceipt, H256, U256, EIP1186ProofResponse};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::{encode, Encodable, RlpStream};
+use common::{
+    errors::BlockNotFoundError,
+    types::{Address, Block, BlockTag, Transactions},
+    utils::hex_str_to_bytes,
+};
+use ethers::{
+    abi::AbiEncode,
+    types::{EIP1186ProofResponse, Filter, Log, Transaction, TransactionReceipt, H256, U256},
+    utils::{
+        keccak256,
+        rlp::{encode, Encodable, RlpStream},
+    },
+};
 use eyre::Result;
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
@@ -42,7 +49,12 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
     }
 
-    pub async fn get_proof(&self, address: &Address, slots: &[H256], block_number: u64) -> Result<EIP1186ProofResponse> {
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block_number: u64,
+    ) -> Result<EIP1186ProofResponse> {
         self.rpc.get_proof(address, slots, block_number).await
     }
 

@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
-use ethers::prelude::{Address, EIP1186ProofResponse, U256};
-use ethers::types::{
-    Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256,
+use common::types::{Block, BlockTag};
+use config::Config;
+use consensus::{database::Database, rpc::nimbus_rpc::NimbusRpc, ConsensusClient};
+use ethers::{
+    prelude::{Address, EIP1186ProofResponse, U256},
+    types::{Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
 use execution::{evm::Evm, rpc::http_rpc::HttpRpc, state::State, types::CallOpts, ExecutionClient};
 use eyre::{eyre, Result};

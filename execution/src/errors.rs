@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethers::{
     abi::AbiDecode,
-    types::{Address, H256, U256},
+    types::{Address, U256},
 };
 use eyre::Report;
 use thiserror::Error;

@@ -13,7 +13,6 @@ tracing.workspace = true
 chrono.workspace = true
 milagro_bls.workspace = true
 ssz-rs.workspace = true
-ethers.workspace = true
 
 config = { path = "../config" }
 consensus = { path = "../consensus" }

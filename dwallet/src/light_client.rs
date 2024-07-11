@@ -1,22 +1,27 @@
-//! This module defines an Ethereum light client interface for the dwallet network, providing functionality
-//! to initialize, start, and interact with an Ethereum light client. It supports retrieving Merkle proofs
-//! for account and storage states and fetching updates from the consensus layer.
+//! This module defines an Ethereum light client interface for the dwallet network, providing
+//! functionality to initialize, start, and interact with an Ethereum light client. It supports
+//! retrieving Merkle proofs for account and storage states and fetching updates from the consensus
+//! layer.
 //!
-//! The main structure provided is `EthLightClient`, which integrates with the `ethers` library for Ethereum
-//! interaction. The configuration and request parameters for the client are defined in
+//! The main structure provided is `EthLightClient`, which integrates with the `ethers` library for
+//! Ethereum interaction. The configuration and request parameters for the client are defined in
 //! the `EthLightClientConfig` and `ProofRequestParameters` structures respectively.
 
-use anyhow::{anyhow};
+use anyhow::anyhow;
 use client::{Client, ClientBuilder};
 use config::Network;
-use consensus::database::FileDB;
-use consensus::types::{UpdatesResponse};
-use ethers::prelude::{Address};
-use consensus::rpc::ConsensusRpc;
-use consensus::rpc::nimbus_rpc::NimbusRpc;
+use consensus::{
+    database::FileDB,
+    rpc::{nimbus_rpc::NimbusRpc, ConsensusRpc},
+    types::AggregateUpdates,
+};
+use ethers::prelude::Address;
 use execution::types::ProofVerificationInput;
-use crate::eth_state::EthState;
-use crate::utils::{create_account_proof, extract_storage_proof};
+
+use crate::{
+    eth_state::EthState,
+    utils::{create_account_proof, extract_storage_proof},
+};
 
 /// Interface of Ethereum light client for dwallet network
 pub struct EthLightClient {
@@ -53,7 +58,7 @@ impl EthLightClient {
     fn new(config: EthLightClientConfig, eth_state: EthState) -> Result<Self, anyhow::Error> {
         let network = &config.network;
         let client: Client<FileDB> = ClientBuilder::new()
-            .network(network.clone())
+            .network(*network)
             .execution_rpc(&config.execution_rpc)
             .consensus_rpc(&config.consensus_rpc)
             .checkpoint(&eth_state.last_checkpoint)
@@ -69,7 +74,7 @@ impl EthLightClient {
             consensus_rpc,
         })
     }
-    
+
     pub fn get_eth_state(&self) -> &EthState {
         &self.eth_state
     }
@@ -105,7 +110,7 @@ impl EthLightClient {
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,
         )
-            .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
+        .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
 
         let proof = self
             .client
@@ -127,10 +132,7 @@ impl EthLightClient {
     /// Get new block headers' updates from the consensus layer.
     /// The updates are fetched starting from the last validated checkpoint
     /// (last_checkpoint field) that is stored in the state.
-    pub async fn get_updates(
-        &mut self,
-    ) -> Result<UpdatesResponse, eyre::Error> {
+    pub async fn get_updates(&mut self) -> Result<AggregateUpdates, eyre::Error> {
         self.eth_state.get_updates(&self.consensus_rpc).await
     }
 }
-

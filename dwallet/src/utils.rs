@@ -1,17 +1,22 @@
 //! This module provides functionality for creating Merkle proofs related to Ethereum account
 //! and storage states.
 
-use ethers::prelude::{EIP1186ProofResponse, H256, U256, Address};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::RlpStream;
-use eyre::{eyre, Report};
-use consensus::types::{Bytes32};
+use consensus::types::Bytes32;
+use ethers::{
+    prelude::{Address, EIP1186ProofResponse, H256, U256},
+    utils::{keccak256, rlp::RlpStream},
+};
 use execution::types::ProofVerificationInput;
+use eyre::{eyre, Report};
 
 /// Creates a proof verification input for an Ethereum account.
-pub(crate) fn create_account_proof(contract_addr: &Address, state_root: &Bytes32, proof: &EIP1186ProofResponse) -> ProofVerificationInput {
+pub(crate) fn create_account_proof(
+    contract_addr: &Address,
+    state_root: &Bytes32,
+    proof: &EIP1186ProofResponse,
+) -> ProofVerificationInput {
     let account_path = keccak256(contract_addr.as_bytes()).to_vec();
-    let account_encoded = encode_account(&proof);
+    let account_encoded = encode_account(proof);
 
     let account_proof = ProofVerificationInput {
         proof: proof.clone().account_proof,
@@ -47,7 +52,8 @@ pub(crate) fn extract_storage_proof(
         .find(|p| p.key == U256::from(message_map_index.as_bytes()))
         .ok_or_else(|| eyre!("Storage proof not found"))?;
 
-    // 1 for True (if the message is approved, the value in the contract's storage map would be True).
+    // 1 for True (if the message is approved, the value in the contract's storage map would be
+    // True).
     let storage_value = [1].to_vec();
     let mut msg_storage_proof_key_bytes = [0u8; 32];
     msg_storage_proof

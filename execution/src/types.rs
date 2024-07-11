@@ -39,19 +39,19 @@ impl fmt::Debug for CallOpts {
 /// a Merkle proof in the context of Ethereum storage. It contains the proof path, the root hash,
 /// the storage key hash, and the corresponding value.
 /// # Fields
-/// * `proof` - An array of RLP-serialized MerkleTree nodes. This array starts with the `storageHash`
-///   node and follows the path of the SHA3 hash of the key. This represents the proof path from the
-///   storage root to the desired storage value.
+/// * `proof` - An array of RLP-serialized MerkleTree nodes. This array starts with the
+///   `storageHash` node and follows the path of the SHA3 hash of the key. This represents the proof
+///   path from the storage root to the desired storage value.
 ///
 /// * `root` - A 32-byte vector representing the SHA3 hash of the StorageRoot. All storage data will
-///   deliver a Merkle proof that starts with this root hash. This serves as the anchor for verifying
-///   the proof.
+///   deliver a Merkle proof that starts with this root hash. This serves as the anchor for
+///   verifying the proof.
 ///
-/// * `path` - A vector of bytes representing the requested storage key hash. This is the specific key
-///   within the storage trie for which the proof is being verified.
+/// * `path` - A vector of bytes representing the requested storage key hash. This is the specific
+///   key within the storage trie for which the proof is being verified.
 ///
-/// * `value` - A vector of bytes representing the storage value. This is the value stored at the location
-///   identified by the key hash in the path field.
+/// * `value` - A vector of bytes representing the storage value. This is the value stored at the
+///   location identified by the key hash in the path field.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct ProofVerificationInput {
     // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node,

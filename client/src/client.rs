@@ -1,19 +1,12 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::IpAddr;
-use std::sync::Arc;
-use std::time::Duration;
-
-use config::networks::Network;
-use consensus::database::Database;
-use ethers::prelude::{Address, EIP1186ProofResponse, U256};
-use ethers::types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256};
-use eyre::{eyre, Result};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use common::types::{Block, BlockTag};
 use config::{networks::Network, Config};
 use consensus::database::Database;
 use ethers::{
-    prelude::{Address, U256},
+    prelude::{Address, EIP1186ProofResponse, U256},
     types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
 use execution::types::CallOpts;

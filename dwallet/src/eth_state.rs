@@ -1,8 +1,24 @@
-use std::cmp;
-use chrono::{Duration};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    cmp,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+use chrono::Duration;
+use config::Network;
+use consensus::{
+    constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
+    errors::ConsensusError,
+    get_bits, get_participating_keys, is_current_committee_proof_valid, is_finality_proof_valid,
+    is_next_committee_proof_valid,
+    rpc::{nimbus_rpc::NimbusRpc, ConsensusRpc},
+    types::{
+        primitives::U64, AggregateUpdates, BLSPubKey, Bootstrap, Bytes32, FinalityUpdate,
+        GenericUpdate, Header, OptimisticUpdate, SignatureBytes, SyncCommittee, Update,
+    },
+    utils::{calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid},
+};
 use ethers::utils::hex::ToHexExt;
-use eyre::{anyhow, Error, eyre};
+use eyre::{anyhow, eyre, Error};
 use milagro_bls::PublicKey;
 use ssz_rs::{Merkleized, Node, Vector};
 use tracing::info;
@@ -97,15 +113,12 @@ impl EthState {
     ///      and are irreversible.
     ///    - Verifies and applies an optimistic update, which might still be subject to change but
     ///      is accepted optimistically to keep the state as current as possible.
-    pub async fn get_updates(
-        &mut self,
-        rpc: &NimbusRpc,
-    ) -> Result<UpdatesResponse, eyre::Error> {
+    pub async fn get_updates(&mut self, rpc: &NimbusRpc) -> Result<AggregateUpdates, eyre::Error> {
         let checkpoint = self.last_checkpoint.clone();
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
         {
-            self.bootstrap(&rpc, &checkpoint).await?;
+            self.bootstrap(rpc, &checkpoint).await?;
         }
 
         let current_period = calc_sync_period(self.finalized_header.slot.into());
@@ -160,7 +173,7 @@ impl EthState {
     /// This function will return an error if:
     /// * Any of the updates fails the verification process.
     /// * There is an error while applying any of the updates.
-    pub fn verify_and_apply_updates(&mut self, updates: &UpdatesResponse) -> Result<(), Error> {
+    pub fn verify_and_apply_updates(&mut self, updates: &AggregateUpdates) -> Result<(), Error> {
         for update in &updates.updates {
             self.verify_update(update)?;
             self.apply_update(update);
