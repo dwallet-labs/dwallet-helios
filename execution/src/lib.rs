@@ -8,5 +8,5 @@ pub mod types;
 mod execution;
 pub use crate::execution::*;
 
+pub mod contract_interactions;
 mod proof;
-mod utils;
