@@ -1,6 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
-use std::{fmt::Display, str::FromStr};
 
 use common::utils::hex_str_to_bytes;
 #[cfg(not(target_arch = "wasm32"))]
@@ -8,47 +7,43 @@ use dirs::home_dir;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
+use strum_macros::{Display, EnumString};
+use tracing::error;
 
 use crate::{
     base::BaseConfig,
     types::{ChainConfig, Fork, Forks},
+    CHECKPOINT_AGE_14_DAYS,
 };
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, EnumIter, Hash, Eq, PartialEq, PartialOrd, Ord,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    EnumIter,
+    Hash,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Default,
+    EnumString,
+    Display,
 )]
 pub enum Network {
+    #[default]
+    #[strum(to_string = "mainnet")]
     MAINNET,
+    #[strum(to_string = "goerli")]
     GOERLI,
+    #[strum(to_string = "sepolia")]
     SEPOLIA,
+    #[strum(to_string = "holesky")]
     HOLESKY,
-}
-
-impl FromStr for Network {
-    type Err = eyre::Report;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "mainnet" => Ok(Self::MAINNET),
-            "goerli" => Ok(Self::GOERLI),
-            "sepolia" => Ok(Self::SEPOLIA),
-            "holesky" => Ok(Self::HOLESKY),
-            _ => Err(eyre::eyre!("network not recognized")),
-        }
-    }
-}
-
-impl Display for Network {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            Self::MAINNET => "mainnet",
-            Self::GOERLI => "goerli",
-            Self::SEPOLIA => "sepolia",
-            Self::HOLESKY => "holesky",
-        };
-
-        f.write_str(str)
-    }
+    #[strum(to_string = "local")]
+    LOCAL,
 }
 
 impl Network {
@@ -58,6 +53,7 @@ impl Network {
             Self::GOERLI => goerli(),
             Self::SEPOLIA => sepolia(),
             Self::HOLESKY => holesky(),
+            Self::LOCAL => local(),
         }
     }
 
@@ -67,7 +63,7 @@ impl Network {
             5 => Ok(Network::GOERLI),
             11155111 => Ok(Network::SEPOLIA),
             17000 => Ok(Network::HOLESKY),
-            _ => Err(eyre::eyre!("chain id not known")),
+            _ => Err(eyre::eyre!("unknown chain ID")),
         }
     }
 }
@@ -110,7 +106,7 @@ pub fn mainnet() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x04000000").unwrap(),
             },
         },
-        max_checkpoint_age: 1_209_600, // 14 days
+        max_checkpoint_age: CHECKPOINT_AGE_14_DAYS,
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::MAINNET)),
         ..std::default::Default::default()
@@ -155,7 +151,7 @@ pub fn goerli() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x04001020").unwrap(),
             },
         },
-        max_checkpoint_age: 1_209_600, // 14 days
+        max_checkpoint_age: CHECKPOINT_AGE_14_DAYS,
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::GOERLI)),
         ..std::default::Default::default()
@@ -200,7 +196,7 @@ pub fn sepolia() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x90000073").unwrap(),
             },
         },
-        max_checkpoint_age: 1_209_600, // 14 days
+        max_checkpoint_age: CHECKPOINT_AGE_14_DAYS,
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::SEPOLIA)),
         ..std::default::Default::default()
@@ -245,10 +241,24 @@ pub fn holesky() -> BaseConfig {
                 fork_version: hex_str_to_bytes("0x05017000").unwrap(),
             },
         },
-        max_checkpoint_age: 1_209_600, // 14 days
+        max_checkpoint_age: CHECKPOINT_AGE_14_DAYS,
         #[cfg(not(target_arch = "wasm32"))]
         data_dir: Some(data_dir(Network::HOLESKY)),
         ..std::default::Default::default()
+    }
+}
+
+/// To use this function, you must have an Ethereum network configuration file in your Sui
+/// config directory.
+/// The file should be named `eth_config.yaml`.
+/// If the file does not exist, the function will exit with code (1).
+pub fn local() -> BaseConfig {
+    match BaseConfig::from_yaml_file() {
+        Ok(config) => config,
+        Err(err) => {
+            error!("cannot parse eth local network configuration: {}", err);
+            std::process::exit(1);
+        }
     }
 }
 

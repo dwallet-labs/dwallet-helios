@@ -1,26 +1,24 @@
-/// Base Config
-pub mod base;
 pub use base::*;
-
-/// Core Config
-pub mod config;
-pub use crate::config::*;
-
-/// Checkpoint Config
-pub mod checkpoints;
 pub use checkpoints::*;
-
-/// Cli Config
-pub mod cli;
 pub use cli::*;
-
-/// Network Configuration
-pub mod networks;
 pub use networks::*;
-
-/// Generic Config Types
-pub mod types;
 pub use types::*;
 
+pub use crate::config::*;
+
+/// Base Config
+pub mod base;
+/// Checkpoint Config
+pub mod checkpoints;
+/// Cli Config
+pub mod cli;
+/// Core Config
+pub mod config;
+/// Network Configuration
+pub mod networks;
+/// Generic Config Types
+pub mod types;
 /// Generic Utilities
 pub mod utils;
+
+const CHECKPOINT_AGE_14_DAYS: u64 = 1_209_600;
