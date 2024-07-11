@@ -30,6 +30,8 @@ where
     }
 }
 
+/// The maximum age of a checkpoint in seconds. If the checkpoint is older than this, Helios will
+/// attempt to fetch a new checkpoint.
 pub(crate) fn default_max_checkpoint_age() -> u64 {
     CHECKPOINT_AGE_14_DAYS
 }
