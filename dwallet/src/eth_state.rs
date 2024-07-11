@@ -23,7 +23,7 @@ use milagro_bls::PublicKey;
 use ssz_rs::{Merkleized, Node, Vector};
 use tracing::info;
 
-/// The EthState struct is designed to maintain the state Ethereum's consensus layer, and perform
+/// EthState struct is designed to maintain the state Ethereum's consensus layer, and perform
 /// various operations on it.
 /// Operations include synchronizing the local state with the blockchain state, verifying and
 /// applying updates, etc.
@@ -103,12 +103,12 @@ impl EthState {
     }
 
     /// Synchronizes the local state with the blockchain state based on a given checkpoint.
-    /// Performs a multi-step process to ensure the local state is up-to-date with
+    /// Performs a multistep process to ensure the local state is up-to-date with
     /// the blockchain's state.
     ///
     /// # Arguments
     /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
-    ///   synchronization process. Typically, this would be a block hash or a similar identifier
+    ///   synchronization process. Typically, this would be a block hash, or a similar identifier
     ///   that marks a specific point in the blockchain history.
     ///
     /// # Process
@@ -119,13 +119,11 @@ impl EthState {
     /// 2. **Fetch Updates:** Retrieves updates from the blockchain for the current period. The
     ///    current period is calculated based on the slot of the last finalized header.
     ///
-    /// 3. **Verify and Apply Updates:**
-    ///    - For each update fetched, it first verifies the update for correctness and then applies
-    ///      the update to the local state.
-    ///    - Verifies and applies a finality update, which includes updates that have been finalized
-    ///      and are irreversible.
-    ///    - Verifies and applies an optimistic update, which might still be subject to change but
-    ///      is accepted optimistically to keep the state as current as possible.
+    /// 3. **Verify and Apply Updates:** – For each update fetched, it first verifies the update for
+    ///    correctness and then applies the update to the local state. — Verifies and applies a
+    ///    finality update, which includes updates that have been finalized and are irreversible. —
+    ///    Verifies and applies an optimistic update, which might still be subject to change but is
+    ///    accepted optimistically to keep the state as current as possible.
     pub async fn get_updates(
         &mut self,
         current_state_checkpoint: &str,
@@ -205,9 +203,8 @@ impl EthState {
         Ok(())
     }
 
-    // todo(yuval): explain why code duplications for next functions
     /// Initializes the synchronization process using the provided checkpoint.
-    /// This function takes a reference to a `NimbusRpc` and a checkpoint string. It fetches the
+    /// This function takes a reference to a `NimbusRpc`, and a checkpoint string. It fetches the
     /// bootstrap data from the blockchain using the provided checkpoint and verifies it for
     /// correctness. If the bootstrap data is valid, it updates the local state to match the
     /// state at the checkpoint. # Arguments
@@ -339,9 +336,9 @@ impl EthState {
     /// 4. **State Update:** If the update should be applied, the function updates the current and
     ///    next sync committees, the finalized header, and potentially the optimistic header.
     /// # Important Considerations
-    /// - This function assumes that the update has already been verified for correctness and
+    /// – This function assumes that the update has already been verified for correctness and
     ///   authenticity.
-    /// - It makes decisions based on comparing the update's slots and periods against the client's
+    /// — It makes decisions based on comparing the update's slots and periods against the client's
     ///   current state, ensuring that only relevant and newer updates are applied.
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
@@ -452,7 +449,7 @@ impl EthState {
     ///    sync committee by checking the number of bits set in
     ///    `sync_aggregate.sync_committee_bits`.
     /// 2. **Timing Validation:** Ensures the update's timing is valid by comparing the
-    ///    `signature_slot` with the `attested_header.slot` and the `finalized_header.slot`. The
+    ///    `signature_slot` with the `attested_header.slot`, and the `finalized_header.slot`. The
     ///    update must be signed after the attested header's slot and before or at the current slot,
     ///    and it must reference a slot that is not older than the last finalized slot.
     /// 3. **Period Validation:** Confirms that the update's signature slot falls within the correct
@@ -533,7 +530,7 @@ impl EthState {
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-        let is_valid_sig = self.verify_sync_committee_signture(
+        let is_valid_sig = self.verify_sync_committee_signature(
             &pks,
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
@@ -570,7 +567,7 @@ impl EthState {
         ) / 2
     }
 
-    fn verify_sync_committee_signture(
+    fn verify_sync_committee_signature(
         &self,
         pks: &[PublicKey],
         attested_header: &Header,
@@ -623,7 +620,7 @@ impl EthState {
         }
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old
+// Determines `blockhash_slot` age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
