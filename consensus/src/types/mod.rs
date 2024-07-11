@@ -330,4 +330,3 @@ pub struct AggregateUpdates {
     pub finality_update: FinalityUpdate,
     pub optimistic_update: OptimisticUpdate,
 }
-
