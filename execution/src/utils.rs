@@ -12,13 +12,13 @@
 //! The code in this module originates from the need to interact with smart contract storage
 //! layouts programmatically, ensuring consistency and correctness in storage access patterns.
 //! The implementation follows the specifications outlined in the Solidity documentation:
-//! https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays
+//! <https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays>
 
 use ethers::types::H256;
 use eyre::Error;
 use sha3::{Digest, Keccak256};
 
-/// This function standardizes the input slot for a given unsigned 64-bit integer.
+/// Standardizes the input slot for a given unsigned 64-bit integer.
 /// It first converts the integer into a hexadecimal string representation.
 /// Then, it pads the hexadecimal string to ensure it has a length of 64 characters.
 /// We pad the string because in solidity, the slot is a 256-bit hash (H256).
@@ -44,7 +44,7 @@ fn standardize_slot_input(input: u64) -> H256 {
 /// it decodes the padded hexadecimal string back into bytes and converts it into a 256-bit hash
 /// (H256).
 /// # Arguments
-/// * `input` - A 256-bit hash (H256) that represents the input key.
+/// * `input` – A 256-bit hash (H256) that represents the input key.
 /// # Returns
 /// * A 256-bit hash (H256) that represents the standardized input key.
 #[allow(unused)]
@@ -60,11 +60,10 @@ fn standardize_key_input(input: H256) -> H256 {
 /// The result hash will be used to get the location of the
 /// (key, value) pair in the contract's storage.
 /// # Arguments
-/// * `key` - A H256 hash that represents the key for which the mapping slot is to be calculated.
+/// * `key` – A H256 hash that represents the key for which the mapping slot is to be calculated.
 ///   The Key is `Keccak256(message + dwallet_id)`.
-/// * `Mapping_slot` - A `u64` value that represents the mapping slot in the contract storage layout.
-///   For more info:
-///   https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays
+/// * `Mapping_slot` – A `u64` value that represents the mapping slot in the contract storage layout.
+///   [For more info](https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays)
 #[allow(unused)]
 fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
     let mut hasher = Keccak256::new();
@@ -76,7 +75,7 @@ fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
 }
 
 /// Calculates the key for a given message and dWallet ID.
-/// In the smart contract, the key is calculated by hashing the message and the dWallet id together.
+/// In the smart contract, the key is calculated by hashing the message, and the dWallet ID together.
 /// The result is a H256 hash that represents the key.
 #[allow(unused)]
 fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
@@ -87,17 +86,16 @@ fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
 }
 
 /// Calculates the storage slot for a given message, dWallet ID, and data slot.
-/// The function first calculates a key by hashing the message and the dWallet ID together.
-/// Then, it calculates the mapping slot for the calculated key and the provided data slot.
+/// The function first calculates a key by hashing the message, and the dWallet ID together.
+/// Then, it calculates the mapping slot for the calculated key, and the provided data slot.
 /// The calculated mapping slot can be used to locate the (key, value) pair in the contract's
 /// storage. # Arguments
-/// * `message` - A string that represents the message to be stored.
-/// * `dwallet_id` - A vector of bytes that represents the dWallet ID.
-/// * `data_slot` - An unsigned 64-bit integer that represents the data slot.
+/// * `message` – A string that represents the message to be stored.
+/// * `dwallet_id` – A vector of bytes that represents the dWallet ID.
+/// * `data_slot` – An unsigned 64-bit integer that represents the data slot.
 /// # Returns
 /// * A `Result` that contains a 256-bit hash (H256) that represents the calculated storage slot, or
 ///   an `Error` if the calculation fails.
-
 #[allow(unused)]
 pub fn get_message_storage_slot(
     message: String,
