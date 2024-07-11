@@ -1,5 +1,7 @@
 use common::utils::hex_str_to_bytes;
 
+use crate::CHECKPOINT_AGE_14_DAYS;
+
 pub fn bytes_deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -26,4 +28,10 @@ where
     } else {
         Ok(None)
     }
+}
+
+/// The maximum age of a checkpoint in seconds. If the checkpoint is older than this, Helios will
+/// attempt to fetch a new checkpoint.
+pub(crate) fn default_max_checkpoint_age() -> u64 {
+    CHECKPOINT_AGE_14_DAYS
 }

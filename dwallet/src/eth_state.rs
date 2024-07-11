@@ -1,23 +1,32 @@
-use std::cmp;
-use chrono::{Duration};
-use std::time::{SystemTime, UNIX_EPOCH};
-use eyre::{anyhow, Error, eyre};
+use std::{
+    cmp,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+use chrono::Duration;
+use config::Network;
+use consensus::{
+    constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
+    errors::ConsensusError,
+    get_bits, get_participating_keys, is_current_committee_proof_valid, is_finality_proof_valid,
+    is_next_committee_proof_valid,
+    rpc::{nimbus_rpc::NimbusRpc, ConsensusRpc},
+    types::{
+        primitives::U64, AggregateUpdates, BLSPubKey, Bootstrap, Bytes32, FinalityUpdate,
+        GenericUpdate, Header, OptimisticUpdate, SignatureBytes, SyncCommittee, Update,
+    },
+    utils::{calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid},
+};
+use ethers::utils::hex::ToHexExt;
+use eyre::{anyhow, eyre, Error};
 use milagro_bls::PublicKey;
 use ssz_rs::{Merkleized, Node, Vector};
-use config::Network;
-use consensus::constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES;
-use consensus::errors::ConsensusError;
-use consensus::{get_bits, get_participating_keys, is_current_committee_proof_valid, is_finality_proof_valid, is_next_committee_proof_valid};
-use consensus::rpc::ConsensusRpc;
-use consensus::rpc::nimbus_rpc::NimbusRpc;
-use consensus::types::{BLSPubKey, Bootstrap, Bytes32, FinalityUpdate, GenericUpdate, Header, OptimisticUpdate, SignatureBytes, SyncCommittee, Update, UpdatesResponse};
-use consensus::types::primitives::U64;
-use consensus::utils::{calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid};
 use tracing::info;
 
 /// The EthState struct is designed to maintain the state Ethereum's consensus layer, and perform
 /// various operations on it.
-/// Operations include synchronizing the local state with the blockchain state, verifying and applying updates, etc.
+/// Operations include synchronizing the local state with the blockchain state, verifying and
+/// applying updates, etc.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default)]
 pub struct EthState {
     #[serde(default)]
@@ -66,8 +75,9 @@ impl EthState {
 
     /// Sets the checkpoint for the Ethereum state.
     ///
-    /// This method is used to set the last known checkpoint for the Ethereum state. The checkpoint is a string
-    /// that represents a specific point in the blockchain history, typically a beacon block hash.
+    /// This method is used to set the last known checkpoint for the Ethereum state. The checkpoint
+    /// is a string that represents a specific point in the blockchain history, typically a
+    /// beacon block hash.
     pub fn set_checkpoint(&mut self, checkpoint: String) -> Self {
         self.last_checkpoint = checkpoint;
         self.clone()
@@ -75,8 +85,8 @@ impl EthState {
 
     /// Sets the network for the Ethereum state.
     ///
-    /// This method is used to set the network for the Ethereum state. The network is an enum that represents
-    /// the specific Ethereum network (e.g., Mainnet, Holesky, devnet, etc.).
+    /// This method is used to set the network for the Ethereum state. The network is an enum that
+    /// represents the specific Ethereum network (e.g., Mainnet, Holesky, devnet, etc.).
     pub fn set_network(&mut self, network: Network) -> Self {
         self.network = network;
         self.clone()
@@ -85,7 +95,8 @@ impl EthState {
     /// Sets the RPC endpoint for the Ethereum state.
     ///
     /// This method is used to set the RPC endpoint for the Ethereum state.
-    /// The RPC endpoint is a string that represents the URL of the Ethereum node that the client will connect to.
+    /// The RPC endpoint is a string that represents the URL of the Ethereum node that the client
+    /// will connect to.
     pub fn set_rpc(&mut self, rpc: String) -> Self {
         self.rpc = rpc;
         self.clone()
@@ -105,8 +116,8 @@ impl EthState {
     /// 1. **Bootstrap:** Initializes the synchronization process using the provided checkpoint.
     ///    This step involves setting up the local state to match the state at the checkpoint.
     ///
-    /// 2. **Fetch Updates:** Retrieves updates from the blockchain for the current period.
-    ///    The current period is calculated based on the slot of the last finalized header.
+    /// 2. **Fetch Updates:** Retrieves updates from the blockchain for the current period. The
+    ///    current period is calculated based on the slot of the last finalized header.
     ///
     /// 3. **Verify and Apply Updates:**
     ///    - For each update fetched, it first verifies the update for correctness and then applies
@@ -118,7 +129,7 @@ impl EthState {
     pub async fn get_updates(
         &mut self,
         current_state_checkpoint: &str,
-    ) -> Result<UpdatesResponse, eyre::Error> {
+    ) -> Result<AggregateUpdates, eyre::Error> {
         let rpc = NimbusRpc::new(&self.rpc);
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
@@ -142,7 +153,7 @@ impl EthState {
         self.last_update_execution_block_number = execution_block_number;
         self.last_update_execution_state_root = execution_state_root;
 
-        Ok(UpdatesResponse {
+        Ok(AggregateUpdates {
             updates,
             finality_update,
             optimistic_update,
@@ -165,21 +176,24 @@ impl EthState {
     }
 
     /// Verifies and applies updates to the Ethereum state.
-    /// This function takes a reference to an `UpdatesResponse` which contains updates fetched from the blockchain.
-    /// It iterates over each update, verifies it for correctness and then applies it to the local state.
-    /// The function performs these operations for three types of updates: regular updates, finality updates, and optimistic updates.
-    /// # Arguments
-    /// * `updates`: A reference to an `UpdatesResponse` object that contains the updates to be verified and applied.
+    /// This function takes a reference to an `AggregateUpdates` which contains updates fetched from
+    /// the blockchain. It iterates over each update, verifies it for correctness and then
+    /// applies it to the local state. The function performs these operations for three types of
+    /// updates: regular updates, finality updates, and optimistic updates. # Arguments
+    /// * `updates`: A reference to an `AggregateUpdates` object that contains the updates to be
+    ///   verified and applied.
     /// # Returns
-    /// * `Result<(), Error>`: This function returns a `Result` type. On successful verification and application of all updates, it returns `Ok(())`. If there is an error at any point during the verification or application process, it returns `Err(Error)`.
+    /// * `Result<(), Error>`: This function returns a `Result` type. On successful verification and
+    ///   application of all updates, it returns `Ok(())`. If there is an error at any point during
+    ///   the verification or application process, it returns `Err(Error)`.
     /// # Errors
     /// This function will return an error if:
     /// * Any of the updates fails the verification process.
     /// * There is an error while applying any of the updates.
-    pub fn sync_updates(&mut self, updates: &UpdatesResponse) -> Result<(), Error> {
+    pub fn sync_updates(&mut self, updates: &AggregateUpdates) -> Result<(), Error> {
         for update in &updates.updates {
-            self.verify_update(&update)?;
-            self.apply_update(&update);
+            self.verify_update(update)?;
+            self.apply_update(update);
         }
 
         self.verify_finality_update(&updates.finality_update)?;
@@ -191,19 +205,20 @@ impl EthState {
         Ok(())
     }
 
-    //todo(yuval): explain why code duplications for next functions
+    // todo(yuval): explain why code duplications for next functions
     /// Initializes the synchronization process using the provided checkpoint.
-    /// This function takes a reference to a `NimbusRpc` and a checkpoint string. It fetches the bootstrap
-    /// data from the blockchain using the provided checkpoint and verifies it for correctness. If the bootstrap
-    /// data is valid, it updates the local state to match the state at the checkpoint.
-    /// # Arguments
-    /// * `rpc`: A reference to a `NimbusRpc` object that is used to interact with the consensus layer of the blockchain.
+    /// This function takes a reference to a `NimbusRpc` and a checkpoint string. It fetches the
+    /// bootstrap data from the blockchain using the provided checkpoint and verifies it for
+    /// correctness. If the bootstrap data is valid, it updates the local state to match the
+    /// state at the checkpoint. # Arguments
+    /// * `rpc`: A reference to a `NimbusRpc` object that is used to interact with the consensus
+    ///   layer of the blockchain.
     /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
     ///   synchronization process. Typically, this would be a beacon block hash.
     /// # Returns
-    /// * `Result<(), Error>`: This function returns a `Result` type. If the bootstrap data is successfully
-    ///   fetched and verified, and the local state is successfully updated, it returns `Ok(())`. If there is
-    ///   an error at any point during the process, it returns `Err(Error)`.
+    /// * `Result<(), Error>`: This function returns a `Result` type. If the bootstrap data is
+    ///   successfully fetched and verified, and the local state is successfully updated, it returns
+    ///   `Ok(())`. If there is an error at any point during the process, it returns `Err(Error)`.
     /// # Errors
     /// This function will return an error if:
     /// * The bootstrap data could not be fetched from the blockchain.
@@ -324,7 +339,8 @@ impl EthState {
     /// 4. **State Update:** If the update should be applied, the function updates the current and
     ///    next sync committees, the finalized header, and potentially the optimistic header.
     /// # Important Considerations
-    /// - This function assumes that the update has already been verified for correctness and authenticity.
+    /// - This function assumes that the update has already been verified for correctness and
+    ///   authenticity.
     /// - It makes decisions based on comparing the update's slots and periods against the client's
     ///   current state, ensuring that only relevant and newer updates are applied.
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
@@ -426,25 +442,28 @@ impl EthState {
     }
 
     /// Verifies the correctness of a generic update received by the consensus client.
-    /// Validates a `GenericUpdate` based on several criteria to ensure it can be safely applied to the client's state.
-    /// The verification process includes checks for sufficient participation, timing and period validity,
-    /// relevance of the update, and the authenticity of signatures.
+    /// Validates a `GenericUpdate` based on several criteria to ensure it can be safely applied to
+    /// the client's state. The verification process includes checks for sufficient
+    /// participation, timing and period validity, relevance of the update, and the authenticity
+    /// of signatures.
     ///
     /// # Verification Process
-    /// 1. **Participation Check:** Verifies that the update has sufficient participation from the sync committee
-    ///     by checking the number of bits set in `sync_aggregate.sync_committee_bits`.
-    /// 2. **Timing Validation:** Ensures the update's timing is valid by comparing the `signature_slot` with the `attested_header.slot`
-    ///     and the `finalized_header.slot`.
-    ///     The update must be signed after the attested header's slot and before or at the current slot,
-    ///     and it must reference a slot that is not older than the last finalized slot.
-    /// 3. **Period Validation:** Confirms that the update's signature slot falls within the correct sync committee period,
-    ///     allowing for updates from the current or immediately next period if the next sync committee is known.
-    /// 4. **Relevance Check:** Ensures the update is relevant by disallowing updates that reference slots older than the
-    ///     last finalized slot unless introducing a new sync committee.
-    /// 5. **Finality and Next Sync Committee Proofs:** Validates proofs related to the update's finality and the
-    ///     inclusion of a new sync committee, if present.
-    /// 6. **Signature Verification:** Confirms that the sync committee's signature on the attested header is valid,
-    ///     indicating agreement with the header's contents.
+    /// 1. **Participation Check:** Verifies that the update has sufficient participation from the
+    ///    sync committee by checking the number of bits set in
+    ///    `sync_aggregate.sync_committee_bits`.
+    /// 2. **Timing Validation:** Ensures the update's timing is valid by comparing the
+    ///    `signature_slot` with the `attested_header.slot` and the `finalized_header.slot`. The
+    ///    update must be signed after the attested header's slot and before or at the current slot,
+    ///    and it must reference a slot that is not older than the last finalized slot.
+    /// 3. **Period Validation:** Confirms that the update's signature slot falls within the correct
+    ///    sync committee period, allowing for updates from the current or immediately next period
+    ///    if the next sync committee is known.
+    /// 4. **Relevance Check:** Ensures the update is relevant by disallowing updates that reference
+    ///    slots older than the last finalized slot unless introducing a new sync committee.
+    /// 5. **Finality and Next Sync Committee Proofs:** Validates proofs related to the update's
+    ///    finality and the inclusion of a new sync committee, if present.
+    /// 6. **Signature Verification:** Confirms that the sync committee's signature on the attested
+    ///    header is valid, indicating agreement with the header's contents.
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<(), Error> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
@@ -581,8 +600,8 @@ impl EthState {
             .unwrap();
 
         let domain_type = &hex::decode("07000000")?[..];
-        let fork_version = Vector::try_from(Self::fork_version(self.network.clone(), slot))
-            .map_err(|(_, err)| err)?;
+        let fork_version =
+            Vector::try_from(Self::fork_version(self.network, slot)).map_err(|(_, err)| err)?;
         let domain = compute_domain(domain_type, fork_version, genesis_root)?;
         compute_signing_root(header, domain)
     }
