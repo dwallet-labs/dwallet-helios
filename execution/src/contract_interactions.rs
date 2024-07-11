@@ -26,7 +26,7 @@ use sha3::{Digest, Keccak256};
 /// it decodes the padded hexadecimal string back into bytes and converts it into a 256-bit hash
 /// (H256).
 /// # Arguments
-/// * `input` - An unsigned 64-bit integer that represents the input slot.
+/// * `input` – An unsigned 64-bit integer that represents the input slot.
 /// # Returns
 /// * A 256-bit hash (H256) that represents the standardized input slot.
 #[allow(unused)]
@@ -57,8 +57,8 @@ fn standardize_key_input(input: H256) -> H256 {
 /// Calculates the mapping slot for a given key and storage slot (in the contract's storage layout).
 /// First initializes a new `Keccak256` hasher, then standardizes the input slot and key.
 /// The standardized key and slot are then hashed together to produce a new `H256` hash.
-/// The result hash will be used to get the location of the
-/// (key, value) pair in the contract's storage.
+/// The result hash will be used to get the location of the (key, value) pair in the contract's
+/// storage.
 /// # Arguments
 /// * `key` – A H256 hash that represents the key for which the mapping slot is to be calculated.
 ///   The Key is `Keccak256(message + dwallet_id)`.
@@ -120,8 +120,8 @@ mod tests {
         let input_zero = 0u64;
         let expected = [0u8; 32];
         assert_eq!(
-            standardize_slot_input(input_zero),
-            H256::from_slice(&expected)
+            H256::from_slice(&expected),
+            standardize_slot_input(input_zero)
         );
 
         let input_one = 1u64;
@@ -140,7 +140,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255,
             255, 255, 255, 255, 255,
         ];
-        assert_eq!(standardize_slot_input(input), H256::from_slice(&expected));
+        assert_eq!(H256::from_slice(&expected), standardize_slot_input(input));
     }
 
     #[test]
@@ -157,7 +157,7 @@ mod tests {
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
             25, 26, 27, 28, 29, 30, 31, 32,
         ]);
-        assert_eq!(standardize_key_input(input), expected);
+        assert_eq!(expected, standardize_key_input(input));
     }
 
     #[test]
@@ -172,7 +172,7 @@ mod tests {
             H256::from_slice(&hasher.finalize())
         };
 
-        assert_eq!(calculate_mapping_slot(key, slot), expected_hash);
+        assert_eq!(expected_hash, calculate_mapping_slot(key, slot));
 
         let key = H256::from_slice(&[1u8; 32]);
         let slot = u64::MAX;
@@ -187,7 +187,7 @@ mod tests {
             H256::from_slice(&hasher.finalize())
         };
 
-        assert_eq!(calculate_mapping_slot(key, slot), expected_hash);
+        assert_eq!(expected_hash, calculate_mapping_slot(key, slot));
     }
 
     #[test]
@@ -200,7 +200,7 @@ mod tests {
             H256::from_slice(&hasher.finalize())
         };
 
-        assert_eq!(calculate_key(message, dwallet_id), expected_hash);
+        assert_eq!(expected_hash, calculate_key(message, dwallet_id));
 
         let dwallet_id = "be344ddffaa7a8c9c5ae7f2d09a77f20ed54f93bf5e567659feca5c3422ae7a6";
         let byte_vec_dwallet_id = hex::decode(dwallet_id).expect("Invalid hex string");
@@ -214,7 +214,7 @@ mod tests {
             H256::from_slice(&hasher.finalize())
         };
 
-        assert_eq!(calculate_key(message, byte_vec_dwallet_id), expected_hash)
+        assert_eq!(expected_hash, calculate_key(message, byte_vec_dwallet_id))
     }
 
     #[test]
@@ -232,6 +232,6 @@ mod tests {
 
         let result = get_message_storage_slot(message, byte_vec_dwallet_id, data_slot).unwrap();
 
-        assert_eq!(result, expected_slot);
+        assert_eq!(expected_slot, result);
     }
 }
