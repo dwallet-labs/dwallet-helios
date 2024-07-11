@@ -219,7 +219,7 @@ pub struct Bootstrap {
     pub current_sync_committee_branch: Vec<Bytes32>,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Default)]
 pub struct Update {
     #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
@@ -232,7 +232,7 @@ pub struct Update {
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct FinalityUpdate {
     #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
@@ -243,7 +243,7 @@ pub struct FinalityUpdate {
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct OptimisticUpdate {
     #[serde(deserialize_with = "header_deserialize")]
     pub attested_header: Header,
@@ -251,7 +251,7 @@ pub struct OptimisticUpdate {
     pub signature_slot: U64,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
 pub struct Header {
     pub slot: U64,
     pub proposer_index: U64,
@@ -260,13 +260,13 @@ pub struct Header {
     pub body_root: Bytes32,
 }
 
-#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, SimpleSerialize, serde::Deserialize, serde::Serialize)]
 pub struct SyncCommittee {
     pub pubkeys: Vector<BLSPubKey, 512>,
     pub aggregate_pubkey: BLSPubKey,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, Default, SimpleSerialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Default, SimpleSerialize)]
 pub struct SyncAggregate {
     pub sync_committee_bits: Bitvector<512>,
     pub sync_committee_signature: SignatureBytes,
@@ -322,4 +322,11 @@ impl From<&OptimisticUpdate> for GenericUpdate {
             finality_branch: None,
         }
     }
+}
+/// Holds an aggregate of all update types that are needed to verify and apply a new Ethereum state.
+#[derive(Debug)]
+pub struct AggregateUpdates {
+    pub updates: Vec<Update>,
+    pub finality_update: FinalityUpdate,
+    pub optimistic_update: OptimisticUpdate,
 }
