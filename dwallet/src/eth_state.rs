@@ -635,26 +635,26 @@ mod tests {
     use super::*;
 
     fn load_eth_state() -> EthState {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
-        let res = read_to_string(path.join("eth_state.json")).unwrap();
+        let path = PathBuf::from("src/testdata/").join("eth_state.json");
+        let res = read_to_string(path).unwrap();
         serde_json::from_str(&res).unwrap()
     }
 
     fn load_updates_vec() -> Vec<Update> {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
-        let res = read_to_string(path.join("updates.json")).unwrap();
+        let path = PathBuf::from("src/testdata").join("updates.json");
+        let res = read_to_string(path).unwrap();
         serde_json::from_str(&res).unwrap()
     }
 
     fn load_finality_update() -> FinalityUpdate {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
-        let res = read_to_string(path.join("finality_update.json")).unwrap();
+        let path = PathBuf::from("src/testdata").join("finality_update.json");
+        let res = read_to_string(path).unwrap();
         serde_json::from_str(&res).unwrap()
     }
 
     fn load_optimistic_update() -> OptimisticUpdate {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
-        let res = read_to_string(path.join("optimistic_update.json")).unwrap();
+        let path = PathBuf::from("src/testdata").join("optimistic_update.json");
+        let res = read_to_string(path).unwrap();
         serde_json::from_str(&res).unwrap()
     }
 
