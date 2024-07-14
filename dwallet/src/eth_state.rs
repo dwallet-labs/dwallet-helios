@@ -177,7 +177,8 @@ impl EthState {
     /// This function takes a reference to an `AggregateUpdates` which contains updates fetched from
     /// the blockchain. It iterates over each update, verifies it for correctness and then
     /// applies it to the local state. The function performs these operations for three types of
-    /// updates: regular updates, finality updates, and optimistic updates. # Arguments
+    /// updates: regular updates, finality updates, and optimistic updates.
+    /// # Arguments
     /// * `updates`: A reference to an `AggregateUpdates` object that contains the updates to be
     ///   verified and applied.
     /// # Returns
@@ -188,7 +189,7 @@ impl EthState {
     /// This function will return an error if:
     /// * Any of the updates fails the verification process.
     /// * There is an error while applying any of the updates.
-    pub fn sync_updates(&mut self, updates: &AggregateUpdates) -> Result<(), Error> {
+    pub fn verify_and_apply_updates(&mut self, updates: &AggregateUpdates) -> Result<(), Error> {
         for update in &updates.updates {
             self.verify_update(update)?;
             self.apply_update(update);
@@ -207,7 +208,8 @@ impl EthState {
     /// This function takes a reference to a `NimbusRpc`, and a checkpoint string. It fetches the
     /// bootstrap data from the blockchain using the provided checkpoint and verifies it for
     /// correctness. If the bootstrap data is valid, it updates the local state to match the
-    /// state at the checkpoint. # Arguments
+    /// state at the checkpoint.
+    /// # Arguments
     /// * `rpc`: A reference to a `NimbusRpc` object that is used to interact with the consensus
     ///   layer of the blockchain.
     /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
@@ -623,5 +625,85 @@ impl EthState {
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
         slot * 12 + self.network.to_base_config().chain.genesis_time
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::read_to_string, path::PathBuf};
+
+    use super::*;
+
+    fn load_eth_state() -> EthState {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
+        let res = read_to_string(path.join("eth_state.json")).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_updates_vec() -> Vec<Update> {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
+        let res = read_to_string(path.join("updates.json")).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_finality_update() -> FinalityUpdate {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
+        let res = read_to_string(path.join("finality_update.json")).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_optimistic_update() -> OptimisticUpdate {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/testdata");
+        let res = read_to_string(path.join("optimistic_update.json")).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_aggregate_updates() -> AggregateUpdates {
+        let updates = load_updates_vec();
+        let finality_update = load_finality_update();
+        let optimistic_update = load_optimistic_update();
+
+        AggregateUpdates {
+            updates,
+            finality_update,
+            optimistic_update,
+        }
+    }
+
+    #[test]
+    fn test_verify_and_apply_updates_success() {
+        let mut eth_state = load_eth_state();
+        let aggregate_updates = load_aggregate_updates();
+
+        eth_state
+            .verify_and_apply_updates(&aggregate_updates)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_verify_and_apply_updates_fail_invalid_header_slot() {
+        let mut eth_state = load_eth_state();
+        let mut aggregate_updates = load_aggregate_updates();
+        let update = aggregate_updates.updates.get_mut(0).unwrap();
+        update.attested_header.slot = U64::from(0);
+
+        let res = eth_state.verify_and_apply_updates(&aggregate_updates);
+        let res = res.unwrap_err().to_string();
+        assert_eq!(ConsensusError::InvalidTimestamp.to_string(), res);
+    }
+
+    #[test]
+    fn test_verify_and_apply_updates_fail_invalid_next_committee_proof() {
+        let mut eth_state = load_eth_state();
+        let mut aggregate_updates = load_aggregate_updates();
+        let update = aggregate_updates.updates.get_mut(0).unwrap();
+        update.next_sync_committee.pubkeys[0] = BLSPubKey::default();
+
+        let res = eth_state.verify_and_apply_updates(&aggregate_updates);
+        let res = res.unwrap_err().to_string();
+        assert_eq!(
+            ConsensusError::InvalidNextSyncCommitteeProof.to_string(),
+            res
+        );
     }
 }
