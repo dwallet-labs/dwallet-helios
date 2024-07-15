@@ -196,15 +196,23 @@ impl<R: ConsensusRpc> Inner<R> {
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
         let mut block = self.rpc.get_block(slot).await?;
-        let block_hash = block.hash_tree_root()?;
+        let block_hash = block.hash_tree_root().map_err(|e| eyre!(e))?;
 
         let latest_slot = self.store.optimistic_header.slot;
         let finalized_slot = self.store.finalized_header.slot;
 
         let verified_block_hash = if slot == latest_slot.as_u64() {
-            self.store.optimistic_header.clone().hash_tree_root()?
+            self.store
+                .optimistic_header
+                .clone()
+                .hash_tree_root()
+                .map_err(|e| eyre!(e))?
         } else if slot == finalized_slot.as_u64() {
-            self.store.finalized_header.clone().hash_tree_root()?
+            self.store
+                .finalized_header
+                .clone()
+                .hash_tree_root()
+                .map_err(|e| eyre!(e))?
         } else {
             return Err(ConsensusError::PayloadNotFound(slot).into());
         };
@@ -251,7 +259,7 @@ impl<R: ConsensusRpc> Inner<R> {
                         format!("{prev_parent_hash:02X?}"),
                         format!("{:02X?}", payload.parent_hash()),
                     ),
-                    "error while backfilling blocks"
+                    "error while back filling blocks"
                 );
                 break;
             }
@@ -378,7 +386,11 @@ impl<R: ConsensusRpc> Inner<R> {
             &bootstrap.current_sync_committee_branch,
         );
 
-        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
+        let header_hash = bootstrap
+            .header
+            .hash_tree_root()
+            .map_err(|e| eyre!(e))?
+            .to_string();
         let expected_hash = format!("0x{}", hex::encode(checkpoint));
         let header_valid = header_hash == expected_hash;
 
@@ -442,28 +454,12 @@ impl<R: ConsensusRpc> Inner<R> {
             return Err(ConsensusError::NotRelevant.into());
         }
 
-        if update.finalized_header.is_some() && update.finality_branch.is_some() {
-            let is_valid = is_finality_proof_valid(
-                &update.attested_header,
-                &mut update.finalized_header.clone().unwrap(),
-                &update.finality_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidFinalityProof.into());
-            }
+        if !validate_finality_proof(update) {
+            return Err(ConsensusError::InvalidFinalityProof.into());
         }
 
-        if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
-            let is_valid = is_next_committee_proof_valid(
-                &update.attested_header,
-                &mut update.next_sync_committee.clone().unwrap(),
-                &update.next_sync_committee_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
-            }
+        if !validate_next_sync_committee_proof(update) {
+            return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
         }
 
         let sync_committee = if update_sig_period == store_period {
@@ -538,7 +534,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let should_apply_update = {
             let has_majority = committee_bits * 3 >= 512 * 2;
             if !has_majority {
-                tracing::warn!("skipping block with low vote count");
+                warn!("skipping block with low vote count");
             }
 
             let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
@@ -669,7 +665,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         let domain_type = &hex::decode("07000000")?[..];
         let fork_version =
-            Vector::try_from(self.config.fork_version(slot)).map_err(|(_, err)| err)?;
+            Vector::try_from(self.config.fork_version(slot)).map_err(|(_, err)| eyre!(err))?;
         let domain = compute_domain(domain_type, fork_version, genesis_root)?;
         compute_signing_root(header, domain)
     }
@@ -678,7 +674,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let expected_time = self.slot_timestamp(slot);
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
-        chrono::Duration::from_std(delay).unwrap()
+        Duration::from_std(delay).unwrap()
     }
 
     fn expected_current_slot(&self) -> u64 {
@@ -707,6 +703,16 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 }
 
+/// Extracts the public keys of committee members who have participated, based on a bitfield.
+///
+/// Iterates over the provided bitfield, where each bit represents the participation
+/// status of a committee member (true for participated, false for not). For each bit set to true,
+/// the corresponding public key from the committee is extracted and included in the returned list.
+/// # Arguments
+/// * `committee` - A reference to the `SyncCommittee` struct, which contains the public keys of all
+///   committee members.
+/// * `bitfield` - A reference to a `Bitvector<512>` representing the participation status of each
+///   committee member.
 pub fn get_participating_keys(
     committee: &SyncCommittee,
     bitfield: &Bitvector<512>,
@@ -743,6 +749,19 @@ pub fn is_finality_proof_valid(
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
 
+/// Validates the proof of the next sync committee.
+///
+/// This function checks if the provided `next_committee` is valid by verifying the proof
+/// against the `attested_header` and `next_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start and end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 23, respectively.
+/// # Arguments
+/// * `attested_header` - A reference to the `Header` struct representing the header that was
+///   attested.
+/// * `next_committee` - A mutable reference to the `SyncCommittee` struct representing the next
+///   sync committee to be validated.
+/// * `next_committee_branch` - A slice of `Bytes32` representing the Merkle branch used to validate
+///   the committee.
 pub fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
@@ -757,6 +776,19 @@ pub fn is_next_committee_proof_valid(
     )
 }
 
+/// Validates the proof of the next sync committee.
+///
+/// This function checks if the provided `current_committee` is valid by verifying the proof
+/// against the `attested_header` and `current_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start and end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 23, respectively.
+/// # Arguments
+/// * `attested_header` - A reference to the `Header` struct representing the header that was
+///   attested.
+/// * `current_committee` - A mutable reference to the `SyncCommittee` struct representing the next
+///   sync committee to be validated.
+/// * `current_committee_branch` - A slice of `Bytes32` representing the Merkle branch used to
+///   validate the committee.
 pub fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
@@ -769,6 +801,49 @@ pub fn is_current_committee_proof_valid(
         5,
         22,
     )
+}
+
+/// Validates the finality proof of a consensus update.
+///
+/// Checks if the update contains both a finalized header and a finality branch.
+/// If both are present, it validates the finality proof using `is_finality_proof_valid`.
+/// It returns `true` if the finality proof is valid or if the update does not contain
+/// both a finalized header and a finality branch, indicating no validation is needed.
+///
+/// # Arguments
+/// * `update` - A reference to the `GenericUpdate` struct containing the consensus update
+///   information.
+pub fn validate_finality_proof(update: &GenericUpdate) -> bool {
+    if update.finalized_header.is_some() && update.finality_branch.is_some() {
+        return is_finality_proof_valid(
+            &update.attested_header,
+            &mut update.finalized_header.clone().unwrap(),
+            &update.finality_branch.clone().unwrap(),
+        );
+    }
+
+    true
+}
+
+/// Validates the next sync committee proof of a consensus update.
+///
+/// Checks if the update contains both a next sync committee and a next sync committee branch.
+/// If both are present, it validates the next sync committee proof using
+/// `is_next_committee_proof_valid`. It returns `true` if the next sync committee proof is valid or
+/// if the update does not contain both a next sync committee and a next sync committee branch,
+/// indicating no validation is needed. # Arguments
+/// * `update` - A reference to the `GenericUpdate` struct containing the consensus update
+///   information.
+pub fn validate_next_sync_committee_proof(update: &GenericUpdate) -> bool {
+    if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
+        return is_next_committee_proof_valid(
+            &update.attested_header,
+            &mut update.next_sync_committee.clone().unwrap(),
+            &update.next_sync_committee_branch.clone().unwrap(),
+        );
+    }
+
+    true
 }
 
 #[cfg(test)]

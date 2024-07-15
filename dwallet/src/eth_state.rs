@@ -8,14 +8,14 @@ use config::Network;
 use consensus::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
     errors::ConsensusError,
-    get_bits, get_participating_keys, is_current_committee_proof_valid, is_finality_proof_valid,
-    is_next_committee_proof_valid,
+    get_bits, get_participating_keys, is_current_committee_proof_valid,
     rpc::{nimbus_rpc::NimbusRpc, ConsensusRpc},
     types::{
         primitives::U64, AggregateUpdates, BLSPubKey, Bootstrap, Bytes32, FinalityUpdate,
         GenericUpdate, Header, OptimisticUpdate, SignatureBytes, SyncCommittee, Update,
     },
     utils::{calc_sync_period, compute_domain, compute_signing_root, is_aggregate_valid},
+    validate_finality_proof, validate_next_sync_committee_proof,
 };
 use ethers::utils::hex::ToHexExt;
 use eyre::{anyhow, eyre, Error};
@@ -23,7 +23,7 @@ use milagro_bls::PublicKey;
 use ssz_rs::{Merkleized, Node, Vector};
 use tracing::info;
 
-/// The EthState struct is designed to maintain the state Ethereum's consensus layer, and perform
+/// EthState struct is designed to maintain the state Ethereum's consensus layer, and perform
 /// various operations on it.
 /// Operations include synchronizing the local state with the blockchain state, verifying and
 /// applying updates, etc.
@@ -90,12 +90,12 @@ impl EthState {
     }
 
     /// Synchronizes the local state with the blockchain state based on a given checkpoint.
-    /// Performs a multi-step process to ensure the local state is up-to-date with
+    /// Performs a multistep process to ensure the local state is up-to-date with
     /// the blockchain's state.
     ///
     /// # Arguments
     /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
-    ///   synchronization process. Typically, this would be a block hash or a similar identifier
+    ///   synchronization process. Typically, this would be a block hash, or a similar identifier
     ///   that marks a specific point in the blockchain history.
     ///
     /// # Process
@@ -162,7 +162,8 @@ impl EthState {
     /// This function takes a reference to an `AggregateUpdates` which contains updates fetched from
     /// the blockchain. It iterates over each update, verifies it for correctness and then
     /// applies it to the local state. The function performs these operations for three types of
-    /// updates: regular updates, finality updates, and optimistic updates. # Arguments
+    /// updates: regular updates, finality updates, and optimistic updates.
+    /// # Arguments
     /// * `updates`: A reference to an `AggregateUpdates` object that contains the updates to be
     ///   verified and applied.
     /// # Returns
@@ -188,12 +189,12 @@ impl EthState {
         Ok(())
     }
 
-    // todo(yuval): explain why code duplications for next functions
     /// Initializes the synchronization process using the provided checkpoint.
-    /// This function takes a reference to a `NimbusRpc` and a checkpoint string. It fetches the
+    /// This function takes a reference to a `NimbusRpc`, and a checkpoint string. It fetches the
     /// bootstrap data from the blockchain using the provided checkpoint and verifies it for
     /// correctness. If the bootstrap data is valid, it updates the local state to match the
-    /// state at the checkpoint. # Arguments
+    /// state at the checkpoint.
+    /// # Arguments
     /// * `rpc`: A reference to a `NimbusRpc` object that is used to interact with the consensus
     ///   layer of the blockchain.
     /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
@@ -227,7 +228,11 @@ impl EthState {
             &bootstrap.current_sync_committee_branch,
         );
 
-        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
+        let header_hash = bootstrap
+            .header
+            .hash_tree_root()
+            .map_err(|e| eyre!(e))?
+            .to_string();
         let expected_hash = checkpoint.to_string();
         let header_valid = header_hash == checkpoint;
 
@@ -322,9 +327,9 @@ impl EthState {
     /// 4. **State Update:** If the update should be applied, the function updates the current and
     ///    next sync committees, the finalized header, and potentially the optimistic header.
     /// # Important Considerations
-    /// - This function assumes that the update has already been verified for correctness and
+    /// – This function assumes that the update has already been verified for correctness and
     ///   authenticity.
-    /// - It makes decisions based on comparing the update's slots and periods against the client's
+    /// — It makes decisions based on comparing the update's slots and periods against the client's
     ///   current state, ensuring that only relevant and newer updates are applied.
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
@@ -388,7 +393,7 @@ impl EthState {
 
                 if self.finalized_header.slot.as_u64() % 32 == 0 {
                     let checkpoint_res = self.finalized_header.hash_tree_root();
-                    if let std::prelude::rust_2015::Ok(checkpoint) = checkpoint_res {
+                    if let Ok(checkpoint) = checkpoint_res {
                         self.last_checkpoint = format!("0x{:?}", checkpoint.as_ref());
                     }
                 }
@@ -435,7 +440,7 @@ impl EthState {
     ///    sync committee by checking the number of bits set in
     ///    `sync_aggregate.sync_committee_bits`.
     /// 2. **Timing Validation:** Ensures the update's timing is valid by comparing the
-    ///    `signature_slot` with the `attested_header.slot` and the `finalized_header.slot`. The
+    ///    `signature_slot` with the `attested_header.slot`, and the `finalized_header.slot`. The
     ///    update must be signed after the attested header's slot and before or at the current slot,
     ///    and it must reference a slot that is not older than the last finalized slot.
     /// 3. **Period Validation:** Confirms that the update's signature slot falls within the correct
@@ -483,28 +488,12 @@ impl EthState {
             return Err(ConsensusError::NotRelevant.into());
         }
 
-        if update.finalized_header.is_some() && update.finality_branch.is_some() {
-            let is_valid = is_finality_proof_valid(
-                &update.attested_header,
-                &mut update.finalized_header.clone().unwrap(),
-                &update.finality_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidFinalityProof.into());
-            }
+        if !validate_finality_proof(update) {
+            return Err(ConsensusError::InvalidFinalityProof.into());
         }
 
-        if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
-            let is_valid = is_next_committee_proof_valid(
-                &update.attested_header,
-                &mut update.next_sync_committee.clone().unwrap(),
-                &update.next_sync_committee_branch.clone().unwrap(),
-            );
-
-            if !is_valid {
-                return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
-            }
+        if !validate_next_sync_committee_proof(update) {
+            return Err(ConsensusError::InvalidNextSyncCommitteeProof.into());
         }
 
         let sync_committee = if update_sig_period == store_period {
@@ -516,12 +505,12 @@ impl EthState {
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-        let is_valid_sig = self.verify_sync_committee_signture(
+        let is_valid_sig = self.verify_sync_committee_signature(
             &pks,
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
             update.signature_slot,
-        );
+        )?;
 
         if !is_valid_sig {
             return Err(ConsensusError::InvalidSignature.into());
@@ -553,23 +542,24 @@ impl EthState {
         ) / 2
     }
 
-    fn verify_sync_committee_signture(
+    fn verify_sync_committee_signature(
         &self,
         pks: &[PublicKey],
         attested_header: &Header,
         signature: &SignatureBytes,
         signature_slot: u64,
-    ) -> bool {
-        let res: Result<bool, Error> = (move || {
-            let pks: Vec<&PublicKey> = pks.iter().collect();
-            let header_root =
-                Bytes32::try_from(attested_header.clone().hash_tree_root()?.as_ref())?;
-            let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
+    ) -> Result<bool, Error> {
+        let pks: Vec<&PublicKey> = pks.iter().collect();
+        let header_root = Bytes32::try_from(
+            attested_header
+                .clone()
+                .hash_tree_root()
+                .map_err(|e| eyre!(e))?
+                .as_ref(),
+        )?;
+        let signing_root = self.compute_committee_sign_root(header_root, signature_slot)?;
 
-            Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
-        })();
-
-        res.unwrap_or(false)
+        Ok(is_aggregate_valid(signature, signing_root.as_ref(), &pks))
     }
 
     fn compute_committee_sign_root(&self, header: Bytes32, slot: u64) -> Result<Node, Error> {
@@ -583,8 +573,8 @@ impl EthState {
             .unwrap();
 
         let domain_type = &hex::decode("07000000")?[..];
-        let fork_version =
-            Vector::try_from(Self::fork_version(self.network, slot)).map_err(|(_, err)| err)?;
+        let fork_version = Vector::try_from(Self::fork_version(self.network, slot))
+            .map_err(|(_, err)| eyre!(err))?;
         let domain = compute_domain(domain_type, fork_version, genesis_root)?;
         compute_signing_root(header, domain)
     }
@@ -606,7 +596,7 @@ impl EthState {
         }
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old
+    // Determines `blockhash_slot` age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
@@ -620,5 +610,85 @@ impl EthState {
 
     fn slot_timestamp(&self, slot: u64) -> u64 {
         slot * 12 + self.network.to_base_config().chain.genesis_time
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::read_to_string, path::PathBuf};
+
+    use super::*;
+
+    fn load_eth_state() -> EthState {
+        let path = PathBuf::from("src/testdata/").join("eth_state.json");
+        let res = read_to_string(path).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_updates_vec() -> Vec<Update> {
+        let path = PathBuf::from("src/testdata").join("updates.json");
+        let res = read_to_string(path).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_finality_update() -> FinalityUpdate {
+        let path = PathBuf::from("src/testdata").join("finality_update.json");
+        let res = read_to_string(path).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_optimistic_update() -> OptimisticUpdate {
+        let path = PathBuf::from("src/testdata").join("optimistic_update.json");
+        let res = read_to_string(path).unwrap();
+        serde_json::from_str(&res).unwrap()
+    }
+
+    fn load_aggregate_updates() -> AggregateUpdates {
+        let updates = load_updates_vec();
+        let finality_update = load_finality_update();
+        let optimistic_update = load_optimistic_update();
+
+        AggregateUpdates {
+            updates,
+            finality_update,
+            optimistic_update,
+        }
+    }
+
+    #[test]
+    fn test_verify_and_apply_updates_success() {
+        let mut eth_state = load_eth_state();
+        let aggregate_updates = load_aggregate_updates();
+
+        eth_state
+            .verify_and_apply_updates(&aggregate_updates)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_verify_and_apply_updates_fail_invalid_header_slot() {
+        let mut eth_state = load_eth_state();
+        let mut aggregate_updates = load_aggregate_updates();
+        let update = aggregate_updates.updates.get_mut(0).unwrap();
+        update.attested_header.slot = U64::from(0);
+
+        let res = eth_state.verify_and_apply_updates(&aggregate_updates);
+        let res = res.unwrap_err().to_string();
+        assert_eq!(ConsensusError::InvalidTimestamp.to_string(), res);
+    }
+
+    #[test]
+    fn test_verify_and_apply_updates_fail_invalid_next_committee_proof() {
+        let mut eth_state = load_eth_state();
+        let mut aggregate_updates = load_aggregate_updates();
+        let update = aggregate_updates.updates.get_mut(0).unwrap();
+        update.next_sync_committee.pubkeys[0] = BLSPubKey::default();
+
+        let res = eth_state.verify_and_apply_updates(&aggregate_updates);
+        let res = res.unwrap_err().to_string();
+        assert_eq!(
+            ConsensusError::InvalidNextSyncCommitteeProof.to_string(),
+            res
+        );
     }
 }

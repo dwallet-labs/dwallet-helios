@@ -105,7 +105,7 @@ impl EthLightClient {
     ) -> Result<ProofResponse, anyhow::Error> {
         let block_number = self.eth_state.last_update_execution_block_number;
         let state_root = &self.eth_state.last_update_execution_state_root;
-        let message_map_index = execution::utils::get_message_storage_slot(
+        let message_map_index = execution::contract_interactions::get_message_storage_slot(
             proof_parameters.message.clone(),
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,
