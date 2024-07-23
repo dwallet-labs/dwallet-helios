@@ -1,8 +1,6 @@
 use std::{cmp, marker::PhantomData, process, sync::Arc};
 
 use chrono::Duration;
-use common::types::Block;
-use config::{CheckpointFallback, Config, Network};
 use eyre::{eyre, Result};
 use futures::future::join_all;
 use milagro_bls::PublicKey;
@@ -14,10 +12,14 @@ use tokio::sync::{
 use tracing::{debug, error, info, warn};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use super::{rpc::ConsensusRpc, types::*, utils::*};
+use common::types::Block;
+use config::{CheckpointFallback, Config, Network};
+
 use crate::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
 };
+
+use super::{rpc::ConsensusRpc, types::*, utils::*};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -268,21 +270,32 @@ impl<R: ConsensusRpc> Inner<R> {
         self.bootstrap(checkpoint).await?;
 
         let current_period = calc_sync_period(self.store.finalized_header.slot.into());
+        println!("current_period: {}", current_period);
         let updates = self
             .rpc
             .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
             .await?;
 
         for update in updates {
+            let period = calc_sync_period(update.attested_header.slot.into());
+            println!("period: {}", period);
             self.verify_update(&update)?;
             self.apply_update(&update);
         }
 
         let finality_update = self.rpc.get_finality_update().await?;
+        let period = calc_sync_period(finality_update.attested_header.slot.into());
+        println!("final period: {}", period);
         self.verify_finality_update(&finality_update)?;
+        println!("final period verify end: {}", period);
         self.apply_finality_update(&finality_update);
+        println!("final period apply end: {}", period);
 
+
+        // todo(yuval): try to get a beacon block and apply it instead of an optimistic update.
         let optimistic_update = self.rpc.get_optimistic_update().await?;
+        let period = calc_sync_period(optimistic_update.attested_header.slot.into());
+        println!("optimistic period: {}", period);
         self.verify_optimistic_update(&optimistic_update)?;
         self.apply_optimistic_update(&optimistic_update);
 
@@ -428,6 +441,7 @@ impl<R: ConsensusRpc> Inner<R> {
         };
 
         if !valid_period {
+            println!("invalid period for update: {}", update_sig_period);
             return Err(ConsensusError::InvalidPeriod.into());
         }
 
@@ -774,16 +788,17 @@ fn is_current_committee_proof_valid(
 mod tests {
     use std::sync::Arc;
 
-    use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};
+
+    use config::{Config, networks};
 
     use crate::{
         consensus::calc_sync_period,
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         errors::ConsensusError,
-        rpc::{mock_rpc::MockRpc, ConsensusRpc},
-        types::{BLSPubKey, Header, SignatureBytes},
         Inner,
+        rpc::{ConsensusRpc, mock_rpc::MockRpc},
+        types::{BLSPubKey, Header, SignatureBytes},
     };
 
     async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {

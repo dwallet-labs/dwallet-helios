@@ -231,6 +231,9 @@ pub struct Update {
     pub sync_aggregate: SyncAggregate,
     pub signature_slot: U64,
 }
+// 1 - 1710143351
+// 2 - 1710260603
+// 3 - 1710369239
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct FinalityUpdate {
