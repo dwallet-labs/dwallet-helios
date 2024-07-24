@@ -4,13 +4,13 @@ use async_trait::async_trait;
 use eyre::Result;
 
 use super::ConsensusRpc;
-use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, OptimisticUpdate, Update};
+use crate::types::{BeaconBlock, Bootstrap, FinalityUpdate, Header, OptimisticUpdate, Update};
 pub struct MockRpc {
     testdata: PathBuf,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(target_arch = "wasm32", async_trait(? Send))]
 impl ConsensusRpc for MockRpc {
     fn new(path: &str) -> Self {
         MockRpc {
@@ -47,6 +47,10 @@ impl ConsensusRpc for MockRpc {
         let res = read_to_string(path)?;
         let block: BeaconBlockResponse = serde_json::from_str(&res)?;
         Ok(block.data.message)
+    }
+
+    async fn get_block_header(&self, slot: u64) -> Result<Header> {
+        todo!()
     }
 
     async fn chain_id(&self) -> Result<u64> {
