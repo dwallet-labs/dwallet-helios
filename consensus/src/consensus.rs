@@ -214,7 +214,7 @@ impl<R: ConsensusRpc> Inner<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -362,9 +362,9 @@ impl<R: ConsensusRpc> Inner<R> {
             .await
             .map_err(|e| eyre!("could not fetch bootstrap. error: {e}"))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
+        let is_valid_checkpoint = self.is_valid_checkpoint(bootstrap.header.slot.into());
 
-        if !is_valid {
+        if !is_valid_checkpoint {
             if self.config.strict_checkpoint_age {
                 return Err(ConsensusError::CheckpointTooOld.into());
             } else {
@@ -372,6 +372,8 @@ impl<R: ConsensusRpc> Inner<R> {
             }
         }
 
+        // Verify that the current sync committee proof is valid, and that the bootstrap data
+        // matches the checkpoint.
         let committee_valid = is_current_committee_proof_valid(
             &bootstrap.header,
             &mut bootstrap.current_sync_committee,
@@ -404,37 +406,46 @@ impl<R: ConsensusRpc> Inner<R> {
 
     // implements checks from validate_light_client_update and process_light_client_update in the
     // specification
+    // For more info: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#light-client-state-updates
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
+        // Validator's participation check.
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
             return Err(ConsensusError::InsufficientParticipation.into());
         }
 
+        // Headers timing checks.
+        // Attested header should always be the latest header.
         let update_finalized_slot = update.finalized_header.clone().unwrap_or_default().slot;
-        let valid_time = self.expected_current_slot() >= update.signature_slot
+        let is_valid_time = self.expected_current_slot() >= update.signature_slot
             && update.signature_slot > update.attested_header.slot.as_u64()
             && update.attested_header.slot >= update_finalized_slot;
 
-        if !valid_time {
+        if !is_valid_time {
             return Err(ConsensusError::InvalidTimestamp.into());
         }
 
-        let store_period = calc_sync_period(self.store.finalized_header.slot.into());
-        let update_sig_period = calc_sync_period(update.signature_slot);
+        // Headers' sync committee epochs timing checks.
+        let store_finalized_slot_period = calc_sync_period(self.store.finalized_header.slot.into());
+        let update_signature_slot_period = calc_sync_period(update.signature_slot);
         let valid_period = if self.store.next_sync_committee.is_some() {
-            update_sig_period == store_period || update_sig_period == store_period + 1
+            update_signature_slot_period == store_finalized_slot_period
+                || update_signature_slot_period == store_finalized_slot_period + 1
         } else {
-            update_sig_period == store_period
+            update_signature_slot_period == store_finalized_slot_period
         };
 
         if !valid_period {
             return Err(ConsensusError::InvalidPeriod.into());
         }
 
-        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
+        // Check if the update is relevant - attested header should be newer than the finalized
+        // header, or the next sync committee should be updated.
+        let update_attested_slot_period =
+            calc_sync_period(update.attested_header.slot.into());
         let update_has_next_committee = self.store.next_sync_committee.is_none()
             && update.next_sync_committee.is_some()
-            && update_attested_period == store_period;
+            && update_attested_slot_period == store_finalized_slot_period;
 
         if update.attested_header.slot <= self.store.finalized_header.slot
             && !update_has_next_committee
@@ -442,6 +453,9 @@ impl<R: ConsensusRpc> Inner<R> {
             return Err(ConsensusError::NotRelevant.into());
         }
 
+        // Check if the finality proof is valid.
+        // The finality proof is valid if the finalized header is a descendant of the attested
+        // header.
         if update.finalized_header.is_some() && update.finality_branch.is_some() {
             let is_valid = is_finality_proof_valid(
                 &update.attested_header,
@@ -454,6 +468,9 @@ impl<R: ConsensusRpc> Inner<R> {
             }
         }
 
+        // Check if the next sync committee proof is valid.
+        // If an attested header has a next sync committee, then we should be able to find it inside
+        // it's state root.
         if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
             let is_valid = is_next_committee_proof_valid(
                 &update.attested_header,
@@ -466,23 +483,24 @@ impl<R: ConsensusRpc> Inner<R> {
             }
         }
 
-        let sync_committee = if update_sig_period == store_period {
+        let sync_committee = if update_signature_slot_period == store_finalized_slot_period {
             &self.store.current_sync_committee
         } else {
             self.store.next_sync_committee.as_ref().unwrap()
         };
 
+        // Get sync committee participants keys, and verify the signature.
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-        let is_valid_sig = self.verify_sync_committee_signture(
+        let is_valid_signature = self.verify_sync_committee_signture(
             &pks,
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
             update.signature_slot,
         );
 
-        if !is_valid_sig {
+        if !is_valid_signature {
             return Err(ConsensusError::InvalidSignature.into());
         }
 
@@ -506,12 +524,15 @@ impl<R: ConsensusRpc> Inner<R> {
 
     // implements state changes from apply_light_client_update and process_light_client_update in
     // the specification
+    // For more info: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#light-client-state-updates
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
+        // Update the current max active participants(validators).
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
         self.store.current_max_active_participants =
             u64::max(self.store.current_max_active_participants, committee_bits);
 
+        // Update the optimistic header if the attested header has more than the safety threshold.
         let should_update_optimistic = committee_bits > self.safety_threshold()
             && update.attested_header.slot > self.store.optimistic_header.slot;
 
@@ -520,7 +541,8 @@ impl<R: ConsensusRpc> Inner<R> {
             self.log_optimistic_update(update);
         }
 
-        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
+        let update_attested_slot_period =
+            calc_sync_period(update.attested_header.slot.into());
 
         let update_finalized_slot = update
             .finalized_header
@@ -528,12 +550,12 @@ impl<R: ConsensusRpc> Inner<R> {
             .map(|h| h.slot.as_u64())
             .unwrap_or(0);
 
-        let update_finalized_period = calc_sync_period(update_finalized_slot);
+        let update_finalized_slot_period = calc_sync_period(update_finalized_slot);
 
         let update_has_finalized_next_committee = self.store.next_sync_committee.is_none()
             && self.has_sync_update(update)
             && self.has_finality_update(update)
-            && update_finalized_period == update_attested_period;
+            && update_finalized_slot_period == update_attested_slot_period;
 
         let should_apply_update = {
             let has_majority = committee_bits * 3 >= 512 * 2;
@@ -552,7 +574,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
             if self.store.next_sync_committee.is_none() {
                 self.store.next_sync_committee = update.next_sync_committee.clone();
-            } else if update_finalized_period == store_period + 1 {
+            } else if update_finalized_slot_period == store_period + 1 {
                 info!(target: "helios::consensus", "sync committee updated");
                 self.store.current_sync_committee = self.store.next_sync_committee.clone().unwrap();
                 self.store.next_sync_committee = update.next_sync_committee.clone();
@@ -739,6 +761,8 @@ fn is_finality_proof_valid(
     finality_header: &mut Header,
     finality_branch: &[Bytes32],
 ) -> bool {
+    // In the Ethereum 2.0 Beacon Chain, specific elements of the state are located at
+    // fixed positions within the Merkle tree.
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
 
@@ -747,6 +771,8 @@ fn is_next_committee_proof_valid(
     next_committee: &mut SyncCommittee,
     next_committee_branch: &[Bytes32],
 ) -> bool {
+    // In the Ethereum 2.0 Beacon Chain, specific elements of the state are located at
+    // fixed positions within the Merkle tree.
     is_proof_valid(
         attested_header,
         next_committee,
