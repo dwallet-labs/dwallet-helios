@@ -130,32 +130,18 @@ impl EthState {
 
         let optimistic_update = rpc.get_optimistic_update().await?;
 
-        let (execution_block_number, execution_state_root) = self
-            .get_execution_block_info_from_update(&finality_update, rpc)
-            .await?;
-
-        self.last_update_execution_block_number = execution_block_number;
-        self.last_update_execution_state_root = execution_state_root;
+        let finality_update_slot = finality_update.attested_header.slot.as_u64();
+        let beacon_block = rpc.get_block(finality_update_slot).await?;
+        self.last_update_execution_block_number =
+            (*beacon_block.body.execution_payload().block_number()).into();
+        self.last_update_execution_state_root =
+            beacon_block.body.execution_payload().state_root().clone();
 
         Ok(AggregateUpdates {
             updates,
             finality_update,
             optimistic_update,
         })
-    }
-
-    async fn get_execution_block_info_from_update(
-        &self,
-        update: &FinalityUpdate,
-        rpc: &NimbusRpc,
-    ) -> Result<(u64, Bytes32), Error> {
-        let latest_header_slot = update.attested_header.slot.as_u64();
-        let block = rpc.get_block(latest_header_slot).await?;
-
-        Ok((
-            (*block.body.execution_payload().block_number()).into(),
-            block.body.execution_payload().state_root().clone(),
-        ))
     }
 
     /// Verifies and applies updates to the Ethereum state.

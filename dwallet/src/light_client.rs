@@ -103,22 +103,28 @@ impl EthLightClient {
         contract_addr: &Address,
         proof_parameters: ProofRequestParameters,
     ) -> Result<ProofResponse, anyhow::Error> {
-        let block_number = self.eth_state.last_update_execution_block_number;
-        let state_root = &self.eth_state.last_update_execution_state_root;
         let message_map_index = execution::contract_interactions::get_message_storage_slot(
             proof_parameters.message.clone(),
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,
         )
-        .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
+            .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
 
         let proof = self
             .client
-            .get_proof(contract_addr, &[message_map_index], block_number)
+            .get_proof(
+                contract_addr,
+                &[message_map_index],
+                self.eth_state.last_update_execution_block_number,
+            )
             .await
             .map_err(|e| anyhow!("failed to get proof: {}", e))?;
 
-        let account_proof = create_account_proof(contract_addr, state_root, &proof);
+        let account_proof = create_account_proof(
+            contract_addr,
+            &self.eth_state.last_update_execution_state_root,
+            &proof,
+        );
 
         let storage_proof = extract_storage_proof(message_map_index, proof)
             .map_err(|e| anyhow!("failed to create storage proof: {}", e))?;
@@ -129,7 +135,7 @@ impl EthLightClient {
         })
     }
 
-    /// Get new block headers' updates from the consensus layer.
+    /// Get new updates from the consensus layer.
     /// The updates are fetched starting from the last validated checkpoint
     /// (last_checkpoint field) that is stored in the state.
     pub async fn get_updates(&mut self) -> Result<AggregateUpdates, eyre::Error> {
