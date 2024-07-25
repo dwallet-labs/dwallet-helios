@@ -8,7 +8,7 @@ use self::{
 };
 
 pub mod primitives;
-mod utils;
+pub(crate) mod utils;
 
 pub type Address = ByteVector<20>;
 pub type Bytes32 = ByteVector<32>;
@@ -135,7 +135,7 @@ struct SignedBeaconBlockHeader {
 }
 
 #[derive(serde::Deserialize, Debug, Default, SimpleSerialize, Clone)]
-struct BeaconBlockHeader {
+pub struct BeaconBlockHeader {
     slot: U64,
     proposer_index: U64,
     parent_root: Bytes32,
