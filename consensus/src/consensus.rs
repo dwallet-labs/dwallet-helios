@@ -17,8 +17,9 @@ use config::{CheckpointFallback, Config, Network};
 
 use crate::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
+    types::primitives::U64,
 };
-use crate::types::primitives::U64;
+
 use super::{rpc::ConsensusRpc, types::*, utils::*};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
@@ -216,7 +217,7 @@ impl<R: ConsensusRpc> Inner<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-                .into())
+            .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -291,18 +292,7 @@ impl<R: ConsensusRpc> Inner<R> {
         self.apply_finality_update(&finality_update);
         println!("final period apply end: {}", period);
 
-
-        // todo(yuval): try to get a beacon block and apply it instead of an optimistic update.
-        let beacon_block = self.rpc.get_block(9583159).await?;
-        let beacon_header = self.rpc.get_block_header(9583159).await?;
-        let signature_slot: U64 = U64::from(beacon_header.clone().slot.as_u64() + 2);
-
-        let optimistic_update = OptimisticUpdate {
-            attested_header: beacon_header,
-            sync_aggregate: beacon_block.body.sync_aggregate().clone(),
-            signature_slot,
-        };
-        // let optimistic_update = self.rpc.get_optimistic_update().await?;
+        let optimistic_update = self.rpc.get_optimistic_update().await?;
         let period = calc_sync_period(optimistic_update.attested_header.slot.into());
         println!("optimistic period: {}", period);
         self.verify_optimistic_update(&optimistic_update)?;

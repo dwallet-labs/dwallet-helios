@@ -3,12 +3,14 @@ use std::{
     sync::Arc,
 };
 
-use common::types::{Block, BlockTag, Transactions};
-use ethers::types::{Address, Transaction, H256, U256};
+use ethers::types::{Address, H256, Transaction, U256};
 use tokio::{
     select,
-    sync::{mpsc::Receiver, watch, RwLock},
+    sync::{mpsc::Receiver, RwLock, watch},
 };
+use tracing::info;
+
+use common::types::{Block, BlockTag, Transactions};
 
 #[derive(Clone)]
 pub struct State {
@@ -32,8 +34,10 @@ impl State {
         run(async move {
             loop {
                 select! {
+                    // Get blocks from the client.
                     block = block_recv.recv() => {
                         if let Some(block) = block {
+                            info!("inner state block: {:?}", block.number);
                             inner_ref.write().await.push_block(block);
                         }
                     },

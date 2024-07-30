@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
         // .checkpoint("0x45a04ace82c71debcb49a27a9f4fa9e0be7d66c8fe2efacc9310d310c8237f55") // old
         .checkpoint("0x0520875f1dba863474f188c7bc1a380170b37f4bd4d523a3102be846af864d3d") // new
         .load_external_fallback()
-        .data_dir(PathBuf::from("/tmp/helios"))
+        .data_dir(PathBuf::from("./helios"))
         .build()?;
 
     info!(
@@ -49,12 +49,13 @@ async fn main() -> Result<()> {
 
     let head_block_num = client.get_block_number().await?;
     let addr = Address::from_str("0x00000000219ab540356cBB839Cbe05303d7705Fa")?;
-    let block = BlockTag::Number(20383575);
-    info!("head blcok num: {}", head_block_num);
+    // let block = BlockTag::Number(20383575);
+    let block = BlockTag::Latest;
+    info!("head block num: {}", head_block_num);
 
     let balance = client.get_balance(&addr, block).await?;
 
-    info!("synced up to block: {}", 20383575);
+    info!("synced up to block: {}", block);
     info!(
         "balance of deposit contract: {}",
         utils::format_ether(balance)
