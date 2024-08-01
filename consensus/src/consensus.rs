@@ -1,6 +1,8 @@
 use std::{cmp, marker::PhantomData, process, sync::Arc};
 
 use chrono::Duration;
+use common::types::Block;
+use config::{CheckpointFallback, Config, Network};
 use eyre::{eyre, Result};
 use futures::future::join_all;
 use milagro_bls::PublicKey;
@@ -12,14 +14,10 @@ use tokio::sync::{
 use tracing::{debug, error, info, warn};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use common::types::Block;
-use config::{CheckpointFallback, Config, Network};
-
+use super::{rpc::ConsensusRpc, types::*, utils::*};
 use crate::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
 };
-
-use super::{rpc::ConsensusRpc, types::*, utils::*};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -856,17 +854,16 @@ pub fn validate_next_sync_committee_proof(update: &GenericUpdate) -> bool {
 mod tests {
     use std::sync::Arc;
 
+    use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};
-
-    use config::{Config, networks};
 
     use crate::{
         consensus::calc_sync_period,
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         errors::ConsensusError,
-        Inner,
-        rpc::{ConsensusRpc, mock_rpc::MockRpc},
+        rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::{BLSPubKey, Header, SignatureBytes},
+        Inner,
     };
 
     async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
