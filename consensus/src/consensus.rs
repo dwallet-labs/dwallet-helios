@@ -1,8 +1,6 @@
 use std::{cmp, marker::PhantomData, process, sync::Arc};
 
 use chrono::Duration;
-use common::types::Block;
-use config::{CheckpointFallback, Config, Network};
 use eyre::{eyre, Result};
 use futures::future::join_all;
 use milagro_bls::PublicKey;
@@ -14,10 +12,14 @@ use tokio::sync::{
 use tracing::{debug, error, info, warn};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 
-use super::{rpc::ConsensusRpc, types::*, utils::*};
+use common::types::Block;
+use config::{CheckpointFallback, Config, Network};
+
 use crate::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
 };
+
+use super::{rpc::ConsensusRpc, types::*, utils::*};
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     pub block_recv: Option<Receiver<Block>>,
@@ -196,7 +198,7 @@ impl<R: ConsensusRpc> Inner<R> {
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
         let mut block = self.rpc.get_block(slot).await?;
-        let block_hash = block.hash_tree_root().map_err(|e| eyre!(e))?;
+        let block_hash = block.hash_tree_root()?;
 
         let latest_slot = self.store.optimistic_header.slot;
         let finalized_slot = self.store.finalized_header.slot;
@@ -296,7 +298,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         info!(
             target: "helios::consensus",
-            "consensus client in sync with checkpoint: 0x{}",
+            "Consensus client in sync with the checkpoint: 0x{}",
             hex::encode(checkpoint)
         );
 
@@ -313,7 +315,7 @@ impl<R: ConsensusRpc> Inner<R> {
         self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            debug!(target: "helios::consensus", "checking for sync committee update");
+            debug!(target: "helios::consensus", "Checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot.into());
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
@@ -322,7 +324,7 @@ impl<R: ConsensusRpc> Inner<R> {
                 let res = self.verify_update(update);
 
                 if res.is_ok() {
-                    info!(target: "helios::consensus", "updating sync committee");
+                    info!(target: "helios::consensus", "Updating sync committee");
                     self.apply_update(update);
                 }
             }
@@ -346,7 +348,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     /// Gets the duration until the next update
-    /// Updates are scheduled for 4 seconds into each slot
+    /// Updates are scheduled for 4 seconds into each slot.
     pub fn duration_until_next_update(&self) -> Duration {
         let current_slot = self.expected_current_slot();
         let next_slot = current_slot + 1;
@@ -415,7 +417,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     // implements checks from validate_light_client_update and process_light_client_update in the
-    // specification
+    // specification.
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
@@ -471,7 +473,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-        let is_valid_sig = self.verify_sync_committee_signture(
+        let is_valid_sig = self.verify_sync_committee_signature(
             &pks,
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
@@ -501,7 +503,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     // implements state changes from apply_light_client_update and process_light_client_update in
-    // the specification
+    // the specification.
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
@@ -641,7 +643,7 @@ impl<R: ConsensusRpc> Inner<R> {
         ) / 2
     }
 
-    fn verify_sync_committee_signture(
+    fn verify_sync_committee_signature(
         &self,
         pks: &[PublicKey],
         attested_header: &Header,
@@ -689,7 +691,7 @@ impl<R: ConsensusRpc> Inner<R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old
+    // Determines blockhash_slot age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
@@ -709,9 +711,9 @@ impl<R: ConsensusRpc> Inner<R> {
 /// status of a committee member (true for participated, false for not). For each bit set to true,
 /// the corresponding public key from the committee is extracted and included in the returned list.
 /// # Arguments
-/// * `committee` - A reference to the `SyncCommittee` struct, which contains the public keys of all
+/// * `committee` – A reference to the `SyncCommittee` struct, which contains the public keys of all
 ///   committee members.
-/// * `bitfield` - A reference to a `Bitvector<512>` representing the participation status of each
+/// * `bitfield` – A reference to a `Bitvector<512>` representing the participation status of each
 ///   committee member.
 pub fn get_participating_keys(
     committee: &SyncCommittee,
@@ -756,11 +758,11 @@ pub fn is_finality_proof_valid(
 /// validation method that requires the indices of the start and end of the committee in the
 /// Merkle tree, which are hardcoded as 5 and 23, respectively.
 /// # Arguments
-/// * `attested_header` - A reference to the `Header` struct representing the header that was
+/// * `attested_header` – A reference to the `Header` struct representing the header that was
 ///   attested.
-/// * `next_committee` - A mutable reference to the `SyncCommittee` struct representing the next
+/// * `next_committee` – A mutable reference to the `SyncCommittee` struct representing the next
 ///   sync committee to be validated.
-/// * `next_committee_branch` - A slice of `Bytes32` representing the Merkle branch used to validate
+/// * `next_committee_branch` – A slice of `Bytes32` representing the Merkle branch used to validate
 ///   the committee.
 pub fn is_next_committee_proof_valid(
     attested_header: &Header,
@@ -783,11 +785,11 @@ pub fn is_next_committee_proof_valid(
 /// validation method that requires the indices of the start and end of the committee in the
 /// Merkle tree, which are hardcoded as 5 and 23, respectively.
 /// # Arguments
-/// * `attested_header` - A reference to the `Header` struct representing the header that was
+/// * `attested_header` – A reference to the `Header` struct representing the header that was
 ///   attested.
-/// * `current_committee` - A mutable reference to the `SyncCommittee` struct representing the next
+/// * `current_committee` – A mutable reference to the `SyncCommittee` struct representing the next
 ///   sync committee to be validated.
-/// * `current_committee_branch` - A slice of `Bytes32` representing the Merkle branch used to
+/// * `current_committee_branch` – A slice of `Bytes32` representing the Merkle branch used to
 ///   validate the committee.
 pub fn is_current_committee_proof_valid(
     attested_header: &Header,
@@ -805,13 +807,14 @@ pub fn is_current_committee_proof_valid(
 
 /// Validates the finality proof of a consensus update.
 ///
-/// Checks if the update contains both a finalized header and a finality branch.
-/// If both are present, it validates the finality proof using `is_finality_proof_valid`.
+/// Checks if the update contains both a finalized header, and a finality branch (in the Merkle
+/// Trie).
+/// If both are present, it validates the finality proof using [`is_finality_proof_valid()`].
 /// It returns `true` if the finality proof is valid or if the update does not contain
-/// both a finalized header and a finality branch, indicating no validation is needed.
+/// both a finalized header, and a finality branch—indicating no validation is necessary.
 ///
 /// # Arguments
-/// * `update` - A reference to the `GenericUpdate` struct containing the consensus update
+/// * `update` – A reference to the [`GenericUpdate`] struct containing the consensus update
 ///   information.
 pub fn validate_finality_proof(update: &GenericUpdate) -> bool {
     if update.finalized_header.is_some() && update.finality_branch.is_some() {
@@ -827,12 +830,15 @@ pub fn validate_finality_proof(update: &GenericUpdate) -> bool {
 
 /// Validates the next sync committee proof of a consensus update.
 ///
-/// Checks if the update contains both a next sync committee and a next sync committee branch.
+/// Checks if the update contains both a next sync committee, and a next sync committee branch.
 /// If both are present, it validates the next sync committee proof using
-/// `is_next_committee_proof_valid`. It returns `true` if the next sync committee proof is valid or
-/// if the update does not contain both a next sync committee and a next sync committee branch,
-/// indicating no validation is needed. # Arguments
-/// * `update` - A reference to the `GenericUpdate` struct containing the consensus update
+/// [`is_next_committee_proof_valid`].
+/// It returns `true` if the next sync committee proof is valid
+/// or if the update does not contain both a next sync committee, and a next sync committee branch,
+/// indicating no validation is necessary.
+///
+/// # Arguments
+/// * `update` – A reference to the [`GenericUpdate`] struct containing the consensus update
 ///   information.
 pub fn validate_next_sync_committee_proof(update: &GenericUpdate) -> bool {
     if update.next_sync_committee.is_some() && update.next_sync_committee_branch.is_some() {
@@ -850,16 +856,17 @@ pub fn validate_next_sync_committee_proof(update: &GenericUpdate) -> bool {
 mod tests {
     use std::sync::Arc;
 
-    use config::{networks, Config};
     use tokio::sync::{mpsc::channel, watch};
+
+    use config::{Config, networks};
 
     use crate::{
         consensus::calc_sync_period,
         constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES,
         errors::ConsensusError,
-        rpc::{mock_rpc::MockRpc, ConsensusRpc},
-        types::{BLSPubKey, Header, SignatureBytes},
         Inner,
+        rpc::{ConsensusRpc, mock_rpc::MockRpc},
+        types::{BLSPubKey, Header, SignatureBytes},
     };
 
     async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
