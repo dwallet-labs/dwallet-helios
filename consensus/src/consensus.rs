@@ -706,12 +706,14 @@ impl<R: ConsensusRpc> Inner<R> {
 /// Extracts the public keys of committee members who have participated, based on a bitfield.
 ///
 /// Iterates over the provided bitfield, where each bit represents the participation
-/// status of a committee member (true for participated, false for not). For each bit set to true,
-/// the corresponding public key from the committee is extracted and included in the returned list.
+/// status of a committee member (`1` for participated, `0` for not).
+/// For each bit set to `1`, the corresponding public key from the committee is
+/// extracted and included in the returned list.
+///
 /// # Arguments
-/// * `committee` – A reference to the `SyncCommittee` struct, which contains the public keys of all
-///   committee members.
-/// * `bitfield` – A reference to a `Bitvector<512>` representing the participation status of each
+/// * `committee` – A reference to the [`SyncCommittee`] struct, which contains the public keys of
+///   all committee members.
+/// * `bitfield` – A reference to a [`Bitvector<512>`] representing the participation status of each
 ///   committee member.
 pub fn get_participating_keys(
     committee: &SyncCommittee,
@@ -729,7 +731,7 @@ pub fn get_participating_keys(
     Ok(pks)
 }
 
-/// Counts the number of bits set to `true` in a given `Bitvector<512>`.
+/// Counts the number of bits set to `true` in a given [`Bitvector<512>`].
 pub fn get_bits(bitfield: &Bitvector<512>) -> u64 {
     let mut count = 0;
     bitfield.iter().for_each(|bit| {
@@ -737,7 +739,6 @@ pub fn get_bits(bitfield: &Bitvector<512>) -> u64 {
             count += 1;
         }
     });
-
     count
 }
 
@@ -753,15 +754,15 @@ pub fn is_finality_proof_valid(
 ///
 /// This function checks if the provided `next_committee` is valid by verifying the proof
 /// against the `attested_header` and `next_committee_branch`. It uses a specific proof
-/// validation method that requires the indices of the start and end of the committee in the
+/// validation method that requires the indices of the start, and the end of the committee in the
 /// Merkle tree, which are hardcoded as 5 and 23, respectively.
 /// # Arguments
-/// * `attested_header` – A reference to the `Header` struct representing the header that was
+/// * `attested_header` – A reference to the [`Header`] struct representing the header that was
 ///   attested.
-/// * `next_committee` – A mutable reference to the `SyncCommittee` struct representing the next
+/// * `next_committee` – A mutable reference to the [`SyncCommittee`] struct representing the next
 ///   sync committee to be validated.
-/// * `next_committee_branch` – A slice of `Bytes32` representing the Merkle branch used to validate
-///   the committee.
+/// * `next_committee_branch` – A slice of [`Bytes32`] representing the Merkle branch used to
+///   validate the committee.
 pub fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
@@ -780,14 +781,14 @@ pub fn is_next_committee_proof_valid(
 ///
 /// This function checks if the provided `current_committee` is valid by verifying the proof
 /// against the `attested_header` and `current_committee_branch`. It uses a specific proof
-/// validation method that requires the indices of the start and end of the committee in the
-/// Merkle tree, which are hardcoded as 5 and 23, respectively.
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 22, respectively.
 /// # Arguments
-/// * `attested_header` – A reference to the `Header` struct representing the header that was
+/// * `attested_header` – A reference to the [`Header`] struct representing the header that was
 ///   attested.
-/// * `current_committee` – A mutable reference to the `SyncCommittee` struct representing the next
-///   sync committee to be validated.
-/// * `current_committee_branch` – A slice of `Bytes32` representing the Merkle branch used to
+/// * `current_committee` – A mutable reference to the [`SyncCommittee`] struct representing the
+///   next sync committee to be validated.
+/// * `current_committee_branch` – A slice of [`Bytes32`] representing the Merkle branch used to
 ///   validate the committee.
 pub fn is_current_committee_proof_valid(
     attested_header: &Header,
