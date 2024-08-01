@@ -56,6 +56,7 @@
 //! ### `errors`
 //!
 //! Errors used across helios.
+//! todo(yuval): add dwallet explanation.
 
 pub mod client {
     pub use client::{Client, ClientBuilder};
@@ -80,4 +81,8 @@ pub mod errors {
 
 pub mod prelude {
     pub use crate::{client::*, config::*, errors::*, types::*};
+}
+
+pub mod dwallet {
+    pub use dwallet::*;
 }
