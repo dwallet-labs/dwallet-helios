@@ -6,7 +6,8 @@ autobenches = false
 exclude = ["benches"]
 
 [workspace]
-members = ["dwallet",
+members = [
+    "dwallet",
     "cli",
     "client",
     "common",
@@ -75,6 +76,7 @@ common = { path = "./common" }
 consensus = { path = "./consensus" }
 dwallet = { path = "./dwallet" }
 execution = { path = "./execution" }
+dwallet = { path = "./dwallet" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

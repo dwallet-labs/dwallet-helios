@@ -11,8 +11,8 @@
 //!
 //! The code in this module originates from the need to interact with smart contract storage
 //! layouts programmatically, ensuring consistency and correctness in storage access patterns.
-//! The implementation follows the specifications outlined in the Solidity documentation:
-//! <https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays>
+//! The implementation follows the specifications outlined in the
+//! [Solidity documentation](https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays)
 
 use ethers::types::H256;
 use eyre::Error;

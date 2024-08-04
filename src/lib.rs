@@ -46,7 +46,7 @@
 //!
 //! ### `config`
 //!
-//! The `config` module provides the configuration types for all of helios. It is used by the
+//! The `config` module provides the configuration types for Helios. It is used by the
 //! `ClientBuilder` to configure the `Client`.
 //!
 //! ### `types`
@@ -68,6 +68,7 @@ pub mod config {
 
 pub mod types {
     pub use common::types::{Address, Block, BlockTag, Transactions};
+    pub use consensus::types::{AggregateUpdates, FinalityUpdate, OptimisticUpdate, Update};
     pub use execution::types::{Account, CallOpts};
 }
 
@@ -82,7 +83,6 @@ pub mod prelude {
 }
 
 pub mod dwallet {
-    pub use consensus::types::AggregateUpdates;
     pub use dwallet::*;
     pub use execution::proof::verify_proof;
 }
