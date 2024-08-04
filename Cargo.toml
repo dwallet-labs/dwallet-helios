@@ -76,7 +76,6 @@ common = { path = "./common" }
 consensus = { path = "./consensus" }
 dwallet = { path = "./dwallet" }
 execution = { path = "./execution" }
-dwallet = { path = "./dwallet" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

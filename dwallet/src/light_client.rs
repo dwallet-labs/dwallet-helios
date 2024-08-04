@@ -108,7 +108,7 @@ impl EthLightClient {
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,
         )
-            .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
+        .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
 
         let proof = self
             .client
