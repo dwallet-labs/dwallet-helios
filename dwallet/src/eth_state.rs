@@ -1,13 +1,14 @@
 //! Ethereum Light Client implementation for dWallet Network
-//! todo(yuval): this is a module level doc.
-//! The `EthState` struct is created to have only the necessary functions for the proof
-//! verification.
-//! Some functions in this struct are borrowed from the consensus module in the Helios
-//! project.
-//! We had to copy them since their logic is similar, but the types they operate on are
-//! different.
-//! Original code can be found here: `consensus/src/consensus.rs` inside `Inner` struct
-//! impl block.
+//!
+//! `eth_state` module implements the Ethereum Light Client for the dWallet Network, focusing on
+//! proof verification and state synchronization. The EthState struct provides the necessary
+//! functionality to interact with the Ethereum consensus layer, borrowing some logic from
+//! the Helios project’s consensus module due to similar requirements but differing types.
+//! Different types are needed due to hard coupling of the state syncing mechanism with the client
+//! itself in the Helios project. Since we don't need the entire Helios consensus module (nor
+//! Helios client), we've extracted the necessary logic for verifying the state into this module.
+//! Original Helios code can be found in consensus/src/consensus.rs within the Inner struct
+//! implementation.
 
 use std::{
     cmp,
@@ -185,15 +186,15 @@ impl EthState {
     }
 
     /// Verifies and applies updates to the Ethereum state.
-    /// This function takes a reference to an `AggregateUpdates` which contains updates fetched from
+    /// This function takes a reference to an [`AggregateUpdates`] which contains updates fetched from
     /// the blockchain. It iterates over each update, verifies it for correctness and then
     /// applies it to the local state. The function performs these operations for three types of
     /// updates: regular updates, finality updates, and optimistic updates.
     /// # Arguments
-    /// * `updates`: A reference to an `AggregateUpdates` object that contains the updates to be
+    /// * `updates`: A reference to an [`AggregateUpdates`] object that contains the updates to be
     ///   verified and applied.
     /// # Returns
-    /// * `Result<(), Error>`: This function returns a `Result` type. On successful verification and
+    /// * `Result<(), Error>`: This function returns a [`Result`] type. On successful verification and
     ///   application of all updates, it returns `Ok(())`. If there is an error at any point during
     ///   the verification or application process, it returns `Err(Error)`.
     /// # Errors
@@ -216,17 +217,17 @@ impl EthState {
     }
 
     /// Initializes the synchronization process using the provided checkpoint.
-    /// This function takes a reference to a `NimbusRpc`, and a checkpoint string. It fetches the
+    /// This function takes a reference to a [`NimbusRpc`], and a checkpoint string. It fetches the
     /// bootstrap data from the blockchain using the provided checkpoint and verifies it for
     /// correctness. If the bootstrap data is valid, it updates the local state to match the
     /// state at the checkpoint.
     /// # Arguments
-    /// * `rpc`: A reference to a `NimbusRpc` object that is used to interact with the consensus
+    /// * `rpc`: A reference to a [`NimbusRpc`] object that is used to interact with the consensus
     ///   layer of the blockchain.
     /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
     ///   synchronization process. Typically, this would be a beacon block hash.
     /// # Returns
-    /// * `Result<(), Error>`: This function returns a `Result` type. If the bootstrap data is
+    /// * `Result<(), Error>`: This function returns a [`Result`] type. If the bootstrap data is
     ///   successfully fetched and verified, and the local state is successfully updated, it returns
     ///   `Ok(())`. If there is an error at any point during the process, it returns `Err(Error)`.
     /// # Errors
@@ -456,7 +457,7 @@ impl EthState {
     }
 
     /// Verifies the correctness of a generic update received by the consensus client.
-    /// Validates a `GenericUpdate` based on several criteria to ensure it can be safely applied to
+    /// Validates a [`GenericUpdate`] based on several criteria to ensure it can be safely applied to
     /// the client's state. The verification process includes checks for sufficient
     /// participation, timing and period validity, relevance of the update, and the authenticity
     /// of signatures.
