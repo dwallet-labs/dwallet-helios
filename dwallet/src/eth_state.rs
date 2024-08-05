@@ -124,13 +124,13 @@ impl EthState {
     ///
     /// # Process
     ///
-    /// 1. **Bootstrap:** Initializes the synchronization process using the provided checkpoint.
+    /// 1. **Bootstrap** – Initializes the synchronization process using the provided checkpoint.
     ///    This step involves setting up the local state to match the state at the checkpoint.
     ///
-    /// 2. **Fetch Updates:** Retrieves updates from the blockchain for the current period. The
+    /// 2. **Fetch Updates** – Retrieves updates from the blockchain for the current period. The
     ///    current period is calculated based on the slot of the last finalized header.
     ///
-    /// 3. **Verify and Apply Updates:** – For each update fetched, it first verifies the update for
+    /// 3. **Verify and Apply Updates** – For each update fetched, it first verifies the update for
     ///    correctness and then applies the update to the local state. — Verifies and applies a
     ///    finality update, which includes updates that have been finalized and are irreversible. —
     ///    Verifies and applies an optimistic update, which might still be subject to change but is
@@ -341,16 +341,16 @@ impl EthState {
     /// sync committees based on these updates.
     /// # Behavior
     /// The function operates as follows:
-    /// 1. **Active Participants Update:** Updates the count of current maximum active participants
+    /// 1. **Active Participants Update* – Updates the count of current maximum active participants
     ///    based on the sync committee bits provided in the update.
-    /// 2. **Optimistic Header Update:** If the update passes the safety threshold and the attested
-    ///    header slot is greater than the currently optimistic header slot, the optimistic header
-    ///    is updated to the new attested header.
-    /// 3. **Sync Committee and Finality Checks:** Determines whether the update should be applied
+    /// 2. **Optimistic Header Update** – If the update passes the safety threshold, and the
+    ///    attested header slot is greater than the currently optimistic header slot, the optimistic
+    ///    header is updated to the new attested header.
+    /// 3. **Sync Committee and Finality Checks** – Determines whether the update should be applied
     ///    based on several criteria, including whether it has a majority of committee bits, whether
     ///    it references a newer finalized slot than the current state, and whether it aligns with
     ///    the current sync committee period.
-    /// 4. **State Update:** If the update should be applied, the function updates the current and
+    /// 4. **State Update** – If the update should be applied, the function updates the current and
     ///    next sync committees, the finalized header, and potentially the optimistic header.
     /// # Important Considerations
     /// – This function assumes that the update has already been verified for correctness and
@@ -462,21 +462,22 @@ impl EthState {
     /// of signatures.
     ///
     /// # Verification Process
-    /// 1. **Participation Check:** Verifies that the update has sufficient participation from the
+    /// 1. **Participation Check** – Verifies that the update has sufficient participation from the
     ///    sync committee by checking the number of bits set in
     ///    `sync_aggregate.sync_committee_bits`.
-    /// 2. **Timing Validation:** Ensures the update's timing is valid by comparing the
+    /// 2. **Timing Validation** – Ensures the update's timing is valid by comparing the
     ///    `signature_slot` with the `attested_header.slot`, and the `finalized_header.slot`. The
     ///    update must be signed after the attested header's slot and before or at the current slot,
     ///    and it must reference a slot that is not older than the last finalized slot.
-    /// 3. **Period Validation:** Confirms that the update's signature slot falls within the correct
-    ///    sync committee period, allowing for updates from the current or immediately next period
-    ///    if the next sync committee is known.
-    /// 4. **Relevance Check:** Ensures the update is relevant by disallowing updates that reference
-    ///    slots older than the last finalized slot unless introducing a new sync committee.
-    /// 5. **Finality and Next Sync Committee Proofs:** Validates proofs related to the update's
+    /// 3. **Period Validation** Confirms that the update's signature slot falls within the correct
+    ///    sync committee period, allowing for updates from the current or immediate next period if
+    ///    the next sync committee is known.
+    /// 4. **Relevance Check** – Ensures the update is relevant by disallowing updates that
+    ///    reference slots older than the last finalized slot unless introducing a new sync
+    ///    committee.
+    /// 5. **Finality and Next Sync Committee Proofs** – Validates proofs related to the update's
     ///    finality and the inclusion of a new sync committee, if present.
-    /// 6. **Signature Verification:** Confirms that the sync committee's signature on the attested
+    /// 6. **Signature Verification** – Confirms that the sync committee's signature on the attested
     ///    header is valid, indicating agreement with the header's contents.
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<(), Error> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
