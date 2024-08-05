@@ -270,6 +270,7 @@ impl<DB: Database> Client<DB> {
         self.node.estimate_gas(opts).await.map_err(|err| err.into())
     }
 
+    /// Expose the `get_proof` method from inner [`Node`]
     pub async fn get_proof(
         &self,
         address: &Address,

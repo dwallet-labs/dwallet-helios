@@ -118,11 +118,14 @@ impl EthState {
     /// 2. **Fetch Updates** – Retrieves updates from the blockchain for the current period. The
     ///    current period is calculated based on the slot of the last finalized header.
     ///
-    /// 3. **Verify and Apply Updates** – For each update fetched, it first verifies the update for
-    ///    correctness and then applies the update to the local state. — Verifies and applies a
-    ///    finality update, which includes updates that have been finalized and are irreversible. —
-    ///    Verifies and applies an optimistic update, which might still be subject to change but is
-    ///    accepted optimistically to keep the state as current as possible.
+    /// 3. **Verify and Apply Updates**
+    ///
+    ///    — For each update fetched, it first verifies the update for
+    ///       correctness and then applies the update to the local state.
+    ///    — Verifies and applies a finality update, which includes updates that have been finalized
+    ///      and are irreversible.
+    ///    — Verifies and applies an optimistic update, which might still be subject to change but
+    ///      is accepted optimistically to keep the state as current as possible.
     pub async fn get_updates(&mut self, rpc: &NimbusRpc) -> Result<AggregateUpdates, Error> {
         let checkpoint = self.last_checkpoint.clone();
         if self.finalized_header.slot == U64::from(0)

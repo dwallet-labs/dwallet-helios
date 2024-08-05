@@ -49,6 +49,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         }
     }
 
+    /// Calls `get_proof` on the RPC with the given parameters
     pub async fn get_proof(
         &self,
         address: &Address,

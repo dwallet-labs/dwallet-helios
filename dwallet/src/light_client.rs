@@ -88,6 +88,16 @@ impl EthLightClient {
         Ok(())
     }
 
+    /// Initializes a new Ethereum light client.
+    ///
+    /// Creates a new instance of `EthLightClient` using the provided
+    /// configuration and eth_state. It constructs the client by calling the `new` method,
+    /// which also syncs the state of the client.
+    /// If successful, it returns the initialized `EthLightClient` instance.
+    ///
+    /// # Arguments
+    /// * `eth_client_config` - A configuration struct for the Ethereum light client.
+    /// * `eth_state` - The current state of the Ethereum light client.
     pub async fn init_new_light_client(
         eth_client_config: EthLightClientConfig,
         eth_state: EthState,
@@ -103,7 +113,7 @@ impl EthLightClient {
         contract_addr: &Address,
         proof_parameters: ProofRequestParameters,
     ) -> Result<ProofResponse, anyhow::Error> {
-        let message_map_index = execution::contract_interactions::get_message_storage_slot(
+        let message_map_index = execution::get_message_storage_slot(
             proof_parameters.message.clone(),
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,

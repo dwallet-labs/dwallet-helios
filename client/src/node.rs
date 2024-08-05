@@ -63,6 +63,7 @@ impl<DB: Database> Node<DB> {
             .map_err(NodeError::ExecutionEvmError)
     }
 
+    /// Returns the proof for the given address, slots and block
     pub async fn get_proof(
         &self,
         address: &Address,

@@ -9,6 +9,10 @@ use ethers::{
 use execution::types::ProofVerificationInput;
 use eyre::{eyre, Report};
 
+// `1u8` for `True`. If a message is approved, the value in the contract's storage map would be
+// `True`. (Conversion from `True` to `1u8` happens on contract's side).
+const TRUE_VALUE: u8 = 1;
+
 /// Creates a proof verification input for an Ethereum account.
 pub(crate) fn create_account_proof(
     contract_addr: &Address,
@@ -52,9 +56,7 @@ pub(crate) fn extract_storage_proof(
         .find(|p| p.key == U256::from(message_map_index.as_bytes()))
         .ok_or_else(|| eyre!("Storage proof not found"))?;
 
-    // 1 for True (if the message is approved, the value in the contract's storage map would be
-    // True).
-    let storage_value = [1].to_vec();
+    let storage_value = [TRUE_VALUE].to_vec();
     let mut msg_storage_proof_key_bytes = [0u8; 32];
     msg_storage_proof
         .key
