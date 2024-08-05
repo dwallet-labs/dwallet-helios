@@ -28,7 +28,7 @@ pub(crate) fn create_account_proof(
 }
 
 /// Encodes an Ethereum account using RLP encoding according to the Ethereum specifications.
-/// More info at: https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
+/// More info [here](https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/).
 pub(crate) fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
     let mut stream = RlpStream::new_list(4);
     stream.append(&proof.nonce);

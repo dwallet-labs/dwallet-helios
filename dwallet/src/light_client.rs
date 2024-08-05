@@ -3,9 +3,9 @@
 //! retrieving Merkle proofs for account and storage states and fetching updates from the consensus
 //! layer.
 //!
-//! The main structure provided is `EthLightClient`, which integrates with the `ethers` library for
-//! Ethereum interaction. The configuration and request parameters for the client are defined in
-//! the `EthLightClientConfig` and `ProofRequestParameters` structures respectively.
+//! The main structure provided is [`EthLightClient`], which integrates with the `ethers` library
+//! for Ethereum interaction. The configuration and request parameters for the client are defined in
+//! the [`EthLightClientConfig`] and [`ProofRequestParameters`] structures respectively.
 
 use anyhow::anyhow;
 use client::{Client, ClientBuilder};
@@ -23,7 +23,7 @@ use crate::{
     utils::{create_account_proof, extract_storage_proof},
 };
 
-/// Interface of Ethereum light client for dwallet network
+/// Interface of the Ethereum light client for dWallet network
 pub struct EthLightClient {
     client: Client<FileDB>,
     consensus_rpc: NimbusRpc,
@@ -64,7 +64,7 @@ impl EthLightClient {
             .checkpoint(&eth_state.last_checkpoint)
             .data_dir("/tmp/helios".parse()?)
             .build()
-            .map_err(|e| anyhow!("failed to create client: {}", e))?;
+            .map_err(|e| anyhow!("failed to create a client: {}", e))?;
 
         let consensus_rpc = NimbusRpc::new(&config.consensus_rpc);
 
@@ -83,7 +83,7 @@ impl EthLightClient {
         self.client
             .start()
             .await
-            .map_err(|e| anyhow!("failed to start client: {}", e))?;
+            .map_err(|e| anyhow!("failed to start a client: {}", e))?;
         self.client.wait_synced().await;
         Ok(())
     }
