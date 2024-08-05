@@ -56,6 +56,11 @@
 //! ### `errors`
 //!
 //! Errors used across helios.
+//!
+//! ### `dwallet`
+//!
+//! The `dwallet` module provides specific light client interface tailored for the unique needs
+//! of the dWallet network.
 
 pub mod client {
     pub use client::{Client, ClientBuilder};
