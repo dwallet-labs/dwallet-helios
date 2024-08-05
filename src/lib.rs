@@ -89,5 +89,5 @@ pub mod prelude {
 
 pub mod dwallet {
     pub use dwallet::*;
-    pub use execution::proof::verify_proof;
+    pub use execution::verify_proof;
 }

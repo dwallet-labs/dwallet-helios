@@ -123,7 +123,7 @@ impl EthState {
     ///    finality update, which includes updates that have been finalized and are irreversible. —
     ///    Verifies and applies an optimistic update, which might still be subject to change but is
     ///    accepted optimistically to keep the state as current as possible.
-    pub async fn get_updates(&mut self, rpc: &NimbusRpc) -> Result<AggregateUpdates, eyre::Error> {
+    pub async fn get_updates(&mut self, rpc: &NimbusRpc) -> Result<AggregateUpdates, Error> {
         let checkpoint = self.last_checkpoint.clone();
         if self.finalized_header.slot == U64::from(0)
             || self.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
