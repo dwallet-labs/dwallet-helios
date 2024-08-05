@@ -46,7 +46,7 @@
 //!
 //! ### `config`
 //!
-//! The `config` module provides the configuration types for all of helios. It is used by the
+//! The `config` module provides the configuration types for Helios. It is used by the
 //! `ClientBuilder` to configure the `Client`.
 //!
 //! ### `types`
