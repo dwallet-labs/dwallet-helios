@@ -1,9 +1,9 @@
 //! This module provides utilities for standardizing and calculating storage slots in Solidity
 //! smart contracts. These utilities are essential for interacting with smart contract storage
-//! in a predictable and reliable manner. The utilities include functions for standardizing
-//! input slots and keys, calculating mapping slots, and determining the storage slot for a given
-//! message and dWallet ID. These functions follow the specifications and layout described in
-//! Solidity's documentation for storage slots and mapping layouts.
+//! in a predictable and reliable manner. The utilities include functions for calculating mapping
+//! slots, and determining the storage slot for a given message and dWallet ID.
+//! These functions follow the specifications and layout described in Solidity's documentation
+//! for storage slots and mapping layouts.
 //!
 //! Solidity uses 256-bit hashes (H256) for storage slots and keys.
 //! When converting integers or other types of data to fit this format, padding is required
@@ -14,45 +14,12 @@
 //! The implementation follows the specifications outlined in the
 //! [Solidity documentation](https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays)
 
-use ethers::types::H256;
+use ethers::{
+    abi::ethabi::{encode, Token},
+    types::H256,
+};
 use eyre::Error;
 use sha3::{Digest, Keccak256};
-
-/// Standardizes the input slot for a given unsigned 64-bit integer.
-/// It first converts the integer into a hexadecimal string representation.
-/// Then, it pads the hexadecimal string to ensure it has a length of 64 characters.
-/// We pad the string because in solidity, the slot is a 256-bit hash (H256).
-/// Finally,
-/// it decodes the padded hexadecimal string back into bytes and converts it into a 256-bit hash
-/// (H256).
-/// # Arguments
-/// * `input` – An unsigned 64-bit integer that represents the input slot.
-/// # Returns
-/// * A 256-bit hash (H256) that represents the standardized input slot.
-#[allow(unused)]
-fn standardize_slot_input(input: u64) -> H256 {
-    let hex_str = format!("{:x}", input);
-    let padded_hex_str = format!("{:0>64}", hex_str);
-    H256::from_slice(&hex::decode(padded_hex_str).unwrap_or_default())
-}
-
-/// This function standardizes the input key for a given 256-bit hash (H256).
-/// It first converts the hash into a hexadecimal string representation.
-/// Then, it pads the hexadecimal string to ensure it has a length of 64 characters.
-/// We pad the string because in solidity, the slot is a 256-bit hash (H256).
-/// Finally,
-/// it decodes the padded hexadecimal string back into bytes and converts it into a 256-bit hash
-/// (H256).
-/// # Arguments
-/// * `input` – A 256-bit hash (H256) that represents the input key.
-/// # Returns
-/// * A 256-bit hash (H256) that represents the standardized input key.
-#[allow(unused)]
-fn standardize_key_input(input: H256) -> H256 {
-    let hex_str = format!("{:x}", input);
-    let padded_hex_str = format!("{:0>64}", hex_str);
-    H256::from_slice(&hex::decode(padded_hex_str).unwrap_or_default())
-}
 
 /// Calculates the mapping slot for a given key and storage slot (in the contract's storage layout).
 /// First initializes a new `Keccak256` hasher, then standardizes the input slot and key.
@@ -66,11 +33,15 @@ fn standardize_key_input(input: H256) -> H256 {
 ///   [For more info](https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays)
 #[allow(unused)]
 fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
+    let slot_encoded = encode(&[Token::Uint(mapping_slot.into())]);
+    let slot_encoded = H256::from_slice(&slot_encoded);
+
+    let key_encoded = encode(&[Token::FixedBytes(key.as_bytes().to_vec())]);
+    let key_encoded = H256::from_slice(&key_encoded);
+
     let mut hasher = Keccak256::new();
-    let slot_padded = standardize_slot_input(mapping_slot);
-    let key_padded = standardize_key_input(key);
-    hasher.update(key_padded.as_bytes());
-    hasher.update(slot_padded.as_bytes());
+    hasher.update(key_encoded.as_bytes());
+    hasher.update(slot_encoded.as_bytes());
     H256::from_slice(&hasher.finalize())
 }
 
@@ -103,7 +74,7 @@ pub fn get_message_storage_slot(
     data_slot: u64,
 ) -> Result<H256, Error> {
     // Calculate memory slot.
-    // Each mapping slot is calculated by concatenating of the msg and dWalletID.
+    // Each key is calculated by hashing the concatenation of the msg and dWalletID.
     let key = calculate_key(
         message.clone().as_bytes().to_vec(),
         dwallet_id.as_slice().to_vec(),
@@ -114,51 +85,6 @@ pub fn get_message_storage_slot(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn standardize_slot_input_valid() {
-        let input_zero = 0u64;
-        let expected = [0u8; 32];
-        assert_eq!(
-            H256::from_slice(&expected),
-            standardize_slot_input(input_zero)
-        );
-
-        let input_one = 1u64;
-        let expected: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ];
-
-        assert_eq!(
-            standardize_slot_input(input_one),
-            H256::from_slice(&expected)
-        );
-
-        let input = u64::MAX;
-        let expected: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255,
-            255, 255, 255, 255, 255,
-        ];
-        assert_eq!(H256::from_slice(&expected), standardize_slot_input(input));
-    }
-
-    #[test]
-    fn standardize_key_input_valid() {
-        let input_zero = H256::from_slice(&[0u8; 32]);
-        let expected_zero = H256::from_slice(&[0u8; 32]);
-        assert_eq!(standardize_key_input(input_zero), expected_zero);
-
-        let input = H256::from_slice(&[
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32,
-        ]);
-        let expected = H256::from_slice(&[
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32,
-        ]);
-        assert_eq!(expected, standardize_key_input(input));
-    }
 
     #[test]
     fn calculate_mapping_slot_valid() {
