@@ -186,17 +186,17 @@ impl EthState {
     }
 
     /// Verifies and applies updates to the Ethereum state.
-    /// This function takes a reference to an [`AggregateUpdates`] which contains updates fetched from
-    /// the blockchain. It iterates over each update, verifies it for correctness and then
+    /// This function takes a reference to an [`AggregateUpdates`] which contains updates fetched
+    /// from the blockchain. It iterates over each update, verifies it for correctness and then
     /// applies it to the local state. The function performs these operations for three types of
     /// updates: regular updates, finality updates, and optimistic updates.
     /// # Arguments
     /// * `updates`: A reference to an [`AggregateUpdates`] object that contains the updates to be
     ///   verified and applied.
     /// # Returns
-    /// * `Result<(), Error>`: This function returns a [`Result`] type. On successful verification and
-    ///   application of all updates, it returns `Ok(())`. If there is an error at any point during
-    ///   the verification or application process, it returns `Err(Error)`.
+    /// * `Result<(), Error>`: This function returns a [`Result`] type. On successful verification
+    ///   and application of all updates, it returns `Ok(())`. If there is an error at any point
+    ///   during the verification or application process, it returns `Err(Error)`.
     /// # Errors
     /// This function will return an error if:
     /// * Any of the updates fails the verification process.
@@ -457,8 +457,8 @@ impl EthState {
     }
 
     /// Verifies the correctness of a generic update received by the consensus client.
-    /// Validates a [`GenericUpdate`] based on several criteria to ensure it can be safely applied to
-    /// the client's state. The verification process includes checks for sufficient
+    /// Validates a [`GenericUpdate`] based on several criteria to ensure it can be safely applied
+    /// to the client's state. The verification process includes checks for sufficient
     /// participation, timing and period validity, relevance of the update, and the authenticity
     /// of signatures.
     ///
