@@ -17,6 +17,7 @@ use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 use super::{rpc::ConsensusRpc, types::*, utils::*};
 use crate::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
+    types::primitives::U64,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
@@ -29,18 +30,18 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
 }
 
 #[derive(Debug)]
-pub struct Inner<R: ConsensusRpc> {
+pub struct ConsensusEngine<R: ConsensusRpc> {
     rpc: R,
     store: LightClientStore,
     last_checkpoint: Option<Vec<u8>>,
-    block_send: Sender<Block>,
-    finalized_block_send: watch::Sender<Option<Block>>,
-    checkpoint_send: watch::Sender<Option<Vec<u8>>>,
+    block_send: Option<Sender<Block>>,
+    finalized_block_send: Option<watch::Sender<Option<Block>>>,
+    checkpoint_send: Option<watch::Sender<Option<Vec<u8>>>>,
     pub config: Arc<Config>,
 }
 
 #[derive(Debug, Default)]
-struct LightClientStore {
+pub struct LightClientStore {
     finalized_header: Header,
     current_sync_committee: SyncCommittee,
     next_sync_committee: Option<SyncCommittee>,
@@ -70,24 +71,26 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
-            let mut inner = Inner::<R>::new(
+            let mut consensus_engine = ConsensusEngine::<R>::new(
                 &rpc,
-                block_send,
-                finalized_block_send,
-                checkpoint_send,
+                Some(block_send),
+                Some(finalized_block_send),
+                Some(checkpoint_send),
                 config.clone(),
+                None,
             );
 
-            let res = inner.sync(&initial_checkpoint).await;
+            let res = consensus_engine.sync(&initial_checkpoint).await;
             if let Err(err) = res {
                 if config.load_external_fallback {
-                    let res = sync_all_fallbacks(&mut inner, config.chain.chain_id).await;
+                    let res =
+                        sync_all_fallbacks(&mut consensus_engine, config.chain.chain_id).await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
                     }
                 } else if let Some(fallback) = &config.fallback {
-                    let res = sync_fallback(&mut inner, fallback).await;
+                    let res = sync_fallback(&mut consensus_engine, fallback).await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
@@ -98,20 +101,25 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 }
             }
 
-            _ = inner.send_blocks().await;
+            _ = consensus_engine.send_blocks().await;
 
             loop {
-                zduny_wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
-                    .await
-                    .unwrap();
+                zduny_wasm_timer::Delay::new(
+                    consensus_engine
+                        .duration_until_next_update()
+                        .to_std()
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
 
-                let res = inner.advance().await;
+                let res = consensus_engine.advance().await;
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "advance error: {}", err);
                     continue;
                 }
 
-                let res = inner.send_blocks().await;
+                let res = consensus_engine.send_blocks().await;
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "send error: {}", err);
                     continue;
@@ -146,12 +154,18 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     }
 }
 
-async fn sync_fallback<R: ConsensusRpc>(inner: &mut Inner<R>, fallback: &str) -> Result<()> {
+async fn sync_fallback<R: ConsensusRpc>(
+    inner: &mut ConsensusEngine<R>,
+    fallback: &str,
+) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
     inner.sync(checkpoint.as_bytes()).await
 }
 
-async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64) -> Result<()> {
+async fn sync_all_fallbacks<R: ConsensusRpc>(
+    inner: &mut ConsensusEngine<R>,
+    chain_id: u64,
+) -> Result<()> {
     let network = Network::from_chain_id(chain_id)?;
     let checkpoint = CheckpointFallback::new()
         .build()
@@ -162,20 +176,21 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64
     inner.sync(checkpoint.as_bytes()).await
 }
 
-impl<R: ConsensusRpc> Inner<R> {
+impl<R: ConsensusRpc> ConsensusEngine<R> {
     pub fn new(
         rpc: &str,
-        block_send: Sender<Block>,
-        finalized_block_send: watch::Sender<Option<Block>>,
-        checkpoint_send: watch::Sender<Option<Vec<u8>>>,
+        block_send: Option<Sender<Block>>,
+        finalized_block_send: Option<watch::Sender<Option<Block>>>,
+        checkpoint_send: Option<watch::Sender<Option<Vec<u8>>>>,
         config: Arc<Config>,
-    ) -> Inner<R> {
+        checkpoint: Option<Vec<u8>>,
+    ) -> ConsensusEngine<R> {
         let rpc = R::new(rpc);
 
-        Inner {
+        ConsensusEngine {
             rpc,
             store: LightClientStore::default(),
-            last_checkpoint: None,
+            last_checkpoint: checkpoint,
             block_send,
             finalized_block_send,
             checkpoint_send,
@@ -324,15 +339,29 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let slot = self.store.optimistic_header.slot.as_u64();
-        let payload = self.get_execution_payload(&Some(slot)).await?;
-        let finalized_slot = self.store.finalized_header.slot.as_u64();
-        let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
+        if self.block_send.is_some()
+            && self.finalized_block_send.is_some()
+            && self.checkpoint_send.is_some()
+        {
+            let slot = self.store.optimistic_header.slot.as_u64();
+            let payload = self.get_execution_payload(&Some(slot)).await?;
+            let finalized_slot = self.store.finalized_header.slot.as_u64();
+            let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
-        self.block_send.send(payload.into()).await?;
-        self.finalized_block_send
-            .send(Some(finalized_payload.into()))?;
-        self.checkpoint_send.send(self.last_checkpoint.clone())?;
+            self.block_send
+                .as_ref()
+                .unwrap()
+                .send(payload.into())
+                .await?;
+            self.finalized_block_send
+                .as_ref()
+                .unwrap()
+                .send(Some(finalized_payload.into()))?;
+            self.checkpoint_send
+                .as_ref()
+                .unwrap()
+                .send(self.last_checkpoint.clone())?;
+        }
 
         Ok(())
     }
@@ -705,6 +734,93 @@ impl<R: ConsensusRpc> Inner<R> {
 
         slot_age < self.config.max_checkpoint_age
     }
+
+    /// Synchronizes the local state with the blockchain state based on a given checkpoint.
+    /// Performs a multistep process to ensure the local state is up-to-date with
+    /// the blockchain's state.
+    ///
+    /// # Arguments
+    /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
+    ///   synchronization process. Typically, this would be a block hash, or a similar identifier
+    ///   that marks a specific point in the blockchain history.
+    ///
+    /// # Process
+    ///
+    /// 1. **Bootstrap:** Initializes the synchronization process using the provided checkpoint.
+    ///    This step involves setting up the local state to match the state at the checkpoint.
+    ///
+    /// 2. **Fetch Updates:** Retrieves updates from the blockchain for the current period. The
+    ///    current period is calculated based on the slot of the last finalized header.
+    ///
+    /// 3. **Verify and Apply Updates:**
+    ///    - For each update fetched, it first verifies the update for correctness and then applies
+    ///      the update to the local state.
+    ///    - Verifies and applies a finality update, which includes updates that have been finalized
+    ///      and are irreversible.
+    ///    - Verifies and applies an optimistic update, which might still be subject to change but
+    ///      is accepted optimistically to keep the state as current as possible.
+    pub async fn get_updates_since_checkpoint(&mut self) -> Result<AggregateUpdates, eyre::Error> {
+        let checkpoint = match self.last_checkpoint.clone() {
+            Some(checkpoint) => checkpoint,
+            None => return Err(eyre!("no checkpoint provided")),
+        };
+
+        if self.store.finalized_header.slot == U64::from(0)
+            || self.store.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
+        {
+            self.bootstrap(&checkpoint).await?;
+        }
+
+        let current_period = calc_sync_period(self.store.finalized_header.slot.into());
+        let updates = self
+            .rpc
+            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await?;
+
+        let finality_update = self.rpc.get_finality_update().await?;
+
+        let optimistic_update = self.rpc.get_optimistic_update().await?;
+
+        Ok(AggregateUpdates {
+            updates,
+            finality_update,
+            optimistic_update,
+        })
+    }
+
+    /// Verifies and applies updates to the Ethereum state.
+    /// This function takes a reference to an `AggregateUpdates` which contains updates fetched from
+    /// the blockchain. It iterates over each update, verifies it for correctness and then
+    /// applies it to the local state. The function performs these operations for three types of
+    /// updates: regular updates, finality updates, and optimistic updates.
+    /// # Arguments
+    /// * `updates`: A reference to an `AggregateUpdates` object that contains the updates to be
+    ///   verified and applied.
+    /// # Returns
+    /// * `Result<(), Error>`: This function returns a `Result` type. On successful verification and
+    ///   application of all updates, it returns `Ok(())`. If there is an error at any point during
+    ///   the verification or application process, it returns `Err(Error)`.
+    /// # Errors
+    /// This function will return an error if:
+    /// * Any of the updates fails the verification process.
+    /// * There is an error while applying any of the updates.
+    pub fn verify_and_apply_updates(
+        &mut self,
+        updates: &AggregateUpdates,
+    ) -> Result<(), eyre::Error> {
+        for update in &updates.updates {
+            self.verify_update(update)?;
+            self.apply_update(update);
+        }
+
+        self.verify_finality_update(&updates.finality_update)?;
+        self.apply_finality_update(&updates.finality_update);
+
+        self.verify_optimistic_update(&updates.optimistic_update)?;
+        self.apply_optimistic_update(&updates.optimistic_update);
+
+        Ok(())
+    }
 }
 
 fn get_participating_keys(
@@ -783,10 +899,10 @@ mod tests {
         errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::{BLSPubKey, Header, SignatureBytes},
-        Inner,
+        ConsensusEngine,
     };
 
-    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> ConsensusEngine<MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
@@ -805,12 +921,13 @@ mod tests {
         let (finalized_block_send, _) = watch::channel(None);
         let (channel_send, _) = watch::channel(None);
 
-        let mut client = Inner::new(
+        let mut client = ConsensusEngine::new(
             "testdata/",
-            block_send,
-            finalized_block_send,
-            channel_send,
+            Some(block_send),
+            Some(finalized_block_send),
+            Some(channel_send),
             Arc::new(config),
+            None,
         );
 
         if sync {
