@@ -88,6 +88,6 @@ pub mod prelude {
 }
 
 pub mod dwallet {
-    pub use consensus::ConsensusStateManager;
+    pub use consensus::{rpc, ConsensusStateManager};
     pub use dwallet::*;
 }
