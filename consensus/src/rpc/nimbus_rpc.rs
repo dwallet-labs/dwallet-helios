@@ -19,7 +19,7 @@ async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
         || async { Ok::<_, eyre::Report>(reqwest::get(req).await?.bytes().await?) },
         BackoffSettings::default(),
     )
-        .await?;
+    .await?;
 
     Ok(serde_json::from_slice::<R>(&bytes)?)
 }

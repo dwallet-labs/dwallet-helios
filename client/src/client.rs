@@ -8,10 +8,9 @@ use common::types::{Block, BlockTag};
 use config::{networks::Network, Config};
 use consensus::database::Database;
 use ethers::{
-    prelude::{Address, U256},
+    prelude::{Address, EIP1186ProofResponse, U256},
     types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
-use ethers::prelude::EIP1186ProofResponse;
 use execution::types::CallOpts;
 use eyre::{eyre, Result};
 use tracing::{info, warn};

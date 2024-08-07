@@ -7,7 +7,11 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Config, types::{ChainConfig, Forks}, utils::{bytes_deserialize, bytes_serialize, default_max_checkpoint_age}};
+use crate::{
+    types::{ChainConfig, Forks},
+    utils::{bytes_deserialize, bytes_serialize, default_max_checkpoint_age},
+    Config,
+};
 
 /// Directory name for dWallet configuration files.
 const DWALLET_DIR: &str = ".dwallet";

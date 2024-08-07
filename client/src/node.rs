@@ -4,10 +4,9 @@ use common::types::{Block, BlockTag};
 use config::Config;
 use consensus::{database::Database, rpc::nimbus_rpc::NimbusRpc, ConsensusClient};
 use ethers::{
-    prelude::{Address, U256},
+    prelude::{Address, EIP1186ProofResponse, U256},
     types::{Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
-use ethers::prelude::EIP1186ProofResponse;
 use execution::{evm::Evm, rpc::http_rpc::HttpRpc, state::State, types::CallOpts, ExecutionClient};
 use eyre::{eyre, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};

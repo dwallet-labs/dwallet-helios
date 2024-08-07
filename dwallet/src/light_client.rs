@@ -100,7 +100,7 @@ impl EthLightClientWrapper {
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,
         )
-            .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
+        .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
 
         let latest_execution_state_root = latest_execution_payload.state_root();
         let latest_execution_block_number = latest_execution_payload.block_number().as_u64();

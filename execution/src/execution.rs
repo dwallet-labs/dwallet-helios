@@ -7,14 +7,13 @@ use common::{
 };
 use ethers::{
     abi::AbiEncode,
-    prelude::Address,
+    prelude::{Address, EIP1186ProofResponse},
     types::{Filter, Log, Transaction, TransactionReceipt, H256, U256},
     utils::{
         keccak256,
         rlp::{encode, Encodable, RlpStream},
     },
 };
-use ethers::prelude::EIP1186ProofResponse;
 use eyre::Result;
 use futures::future::join_all;
 use revm::primitives::KECCAK_EMPTY;
@@ -60,7 +59,6 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
     ) -> Result<EIP1186ProofResponse> {
         self.rpc.get_proof(address, slots, block_number).await
     }
-
 
     pub async fn get_account(
         &self,
@@ -130,7 +128,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
                     code_hash.to_string(),
                     proof.code_hash.to_string(),
                 )
-                    .into());
+                .into());
             }
 
             code
@@ -326,7 +324,7 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
                     tx_hash.to_string(),
                     log.log_index.unwrap(),
                 )
-                    .into());
+                .into());
             }
         }
         Ok(())
