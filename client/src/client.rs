@@ -114,7 +114,7 @@ impl ClientBuilder {
             config.to_base_config()
         };
 
-        let consensus_rpc = self.consensus_rpc.clone().unwrap_or_else(|| {
+        let consensus_rpc = self.consensus_rpc.unwrap_or_else(|| {
             self.config
                 .as_ref()
                 .expect("missing consensus rpc")
@@ -122,7 +122,7 @@ impl ClientBuilder {
                 .clone()
         });
 
-        let execution_rpc = self.execution_rpc.clone().unwrap_or_else(|| {
+        let execution_rpc = self.execution_rpc.unwrap_or_else(|| {
             self.config
                 .as_ref()
                 .expect("missing execution rpc")
@@ -130,7 +130,7 @@ impl ClientBuilder {
                 .clone()
         });
 
-        let checkpoint = if let Some(checkpoint) = self.checkpoint.clone() {
+        let checkpoint = if let Some(checkpoint) = self.checkpoint {
             Some(checkpoint)
         } else if let Some(config) = &self.config {
             config.checkpoint.clone()
@@ -164,7 +164,7 @@ impl ClientBuilder {
 
         #[cfg(not(target_arch = "wasm32"))]
         let data_dir = if self.data_dir.is_some() {
-            self.data_dir.clone()
+            self.data_dir
         } else if let Some(config) = &self.config {
             config.data_dir.clone()
         } else {
@@ -172,7 +172,7 @@ impl ClientBuilder {
         };
 
         let fallback = if self.fallback.is_some() {
-            self.fallback.clone()
+            self.fallback
         } else if let Some(config) = &self.config {
             config.fallback.clone()
         } else {
@@ -225,7 +225,6 @@ pub struct Client<DB: Database> {
     node: Arc<Node<DB>>,
     #[cfg(not(target_arch = "wasm32"))]
     rpc: Option<Rpc<DB>>,
-    pub config: Option<Arc<Config>>,
 }
 
 impl<DB: Database> Client<DB> {
@@ -246,7 +245,6 @@ impl<DB: Database> Client<DB> {
             node,
             #[cfg(not(target_arch = "wasm32"))]
             rpc,
-            config: Some(config),
         })
     }
 

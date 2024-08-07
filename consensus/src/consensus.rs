@@ -46,7 +46,7 @@ pub struct ConsensusStateManager<R: ConsensusRpc> {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct LightClientStore {
+struct LightClientStore {
     finalized_header: Header,
     current_sync_committee: SyncCommittee,
     next_sync_committee: Option<SyncCommittee>,
@@ -116,8 +116,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                .await
-                .unwrap();
+                    .await
+                    .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -235,7 +235,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -741,14 +741,9 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         slot_age < self.config.max_checkpoint_age
     }
 
-    /// Synchronizes the local state with the blockchain state based on a given checkpoint.
+    /// Synchronizes the local state with the blockchain state since the last verified checkpoint.
     /// Performs a multistep process to ensure the local state is up-to-date with
     /// the blockchain's state.
-    ///
-    /// # Arguments
-    /// * `checkpoint`: A `&str` slice that represents the checkpoint from which to start the
-    ///   synchronization process. Typically, this would be a block hash, or a similar identifier
-    ///   that marks a specific point in the blockchain history.
     ///
     /// # Process
     ///
