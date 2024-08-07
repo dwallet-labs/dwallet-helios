@@ -188,7 +188,10 @@ impl<R: ExecutionRpc> EvmState<R> {
                         .await?;
 
                     let storage = self.storage.entry(*address).or_default();
-                    let value = *account.slots.get(&slot_ethers).unwrap();
+                    let slot_ethers_u256 = &slot.as_le_bytes();
+                    let slot_ethers_u256 =
+                        ethers::prelude::U256::from_little_endian(slot_ethers_u256);
+                    let value = *account.slots.get(&slot_ethers_u256).unwrap();
 
                     let mut value_slice = [0u8; 32];
                     value.to_big_endian(value_slice.as_mut_slice());
@@ -314,7 +317,9 @@ impl<R: ExecutionRpc> EvmState<R> {
             self.basic.insert(address, info);
 
             for (slot, value) in account.slots {
-                let slot = B256::from_slice(slot.as_bytes());
+                let mut slot_as_bytes = [0u8; 32];
+                slot.to_big_endian(slot_as_bytes.as_mut_slice());
+                let slot = B256::from_slice(&slot_as_bytes);
                 let value = convert_u256(&value);
 
                 self.storage
@@ -345,12 +350,8 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         Ok(Some(self.state.get_basic(address)?))
     }
 
-    fn block_hash(&mut self, number: U256) -> Result<B256, Report> {
-        trace!(target: "helios::evm", "fetch block hash for block={:?}", number);
-        let number = number
-            .try_into()
-            .map_err(|_| eyre::eyre!("invalid block number"))?;
-        self.state.get_block_hash(number)
+    fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Report> {
+        Err(eyre::eyre!("should never be called"))
     }
 
     fn storage(&mut self, address: Address, slot: U256) -> Result<U256, Report> {
@@ -358,8 +359,12 @@ impl<R: ExecutionRpc> Database for ProofDB<R> {
         self.state.get_storage(address, slot)
     }
 
-    fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Report> {
-        Err(eyre::eyre!("should never be called"))
+    fn block_hash(&mut self, number: U256) -> Result<B256, Report> {
+        trace!(target: "helios::evm", "fetch block hash for block={:?}", number);
+        let number = number
+            .try_into()
+            .map_err(|_| eyre::eyre!("invalid block number"))?;
+        self.state.get_block_hash(number)
     }
 }
 

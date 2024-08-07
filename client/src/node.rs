@@ -7,6 +7,7 @@ use ethers::{
     prelude::{Address, U256},
     types::{Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
+use ethers::prelude::EIP1186ProofResponse;
 use execution::{evm::Evm, rpc::http_rpc::HttpRpc, state::State, types::CallOpts, ExecutionClient};
 use eyre::{eyre, Result};
 use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
@@ -63,6 +64,17 @@ impl<DB: Database> Node<DB> {
             .map_err(NodeError::ExecutionEvmError)
     }
 
+    /// Returns the proof for the given address, slots and block
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        let proof = self.execution.get_proof(address, slots, block).await?;
+        Ok(proof)
+    }
+
     pub async fn get_balance(&self, address: &Address, tag: BlockTag) -> Result<U256> {
         self.check_blocktag_age(&tag).await?;
 
@@ -111,6 +123,7 @@ impl<DB: Database> Node<DB> {
             .get_account(address, Some(&[slot]), tag)
             .await?;
 
+        let slot = U256::from(slot.as_bytes());
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),

@@ -45,6 +45,18 @@ pub struct ConsensusStateManager<R: ConsensusRpc> {
     pub config: Config,
 }
 
+impl<R: ConsensusRpc> ConsensusStateManager<R> {
+    pub fn set_rpc(&mut self, rpc: &str) -> &mut Self {
+        self.rpc = R::new(rpc);
+        self
+    }
+
+    pub fn set_configuration(&mut self, config: Config) -> &mut Self {
+        self.config = config;
+        self
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct LightClientStore {
     finalized_header: Header,
@@ -116,8 +128,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                .await
-                .unwrap();
+                    .await
+                    .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -214,6 +226,10 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         }
     }
 
+    pub fn get_latest_slot(&self) -> U64 {
+        self.store.finalized_header.slot
+    }
+
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
         let mut block = self.rpc.get_block(slot).await?;
@@ -235,7 +251,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -875,9 +891,10 @@ fn is_finality_proof_valid(
 /// Validates the proof of the next sync committee.
 ///
 /// This function checks if the provided `next_committee` is valid by verifying the proof
-/// against the `attested_header` and `next_committee_branch`. It uses a specific proof
-/// validation method that requires the indices of the start, and the end of the committee in the
-/// Merkle tree, which are hardcoded as 5 and 23, respectively.
+/// against the `attested_header` and `next_committee_branch`.
+/// It uses a specific proof validation method that requires the indices of the start,
+/// and the end of the committee in the Merkle tree, which are hardcoded as 5 and 23, respectively.
+///
 /// # Arguments
 /// * `attested_header` – A reference to the [`Header`] struct representing the header that was
 ///   attested.
@@ -902,9 +919,10 @@ fn is_next_committee_proof_valid(
 /// Validates the proof of the next sync committee.
 ///
 /// This function checks if the provided `current_committee` is valid by verifying the proof
-/// against the `attested_header` and `current_committee_branch`. It uses a specific proof
-/// validation method that requires the indices of the start, and the end of the committee in the
-/// Merkle tree, which are hardcoded as 5 and 22, respectively.
+/// against the `attested_header` and `current_committee_branch`.
+/// It uses a specific proof validation method that requires the indices of the start,
+/// and the end of the committee in the Merkle tree, which are hardcoded as 5 and 22, respectively.
+///
 /// # Arguments
 /// * `attested_header` – A reference to the [`Header`] struct representing the header that was
 ///   attested.

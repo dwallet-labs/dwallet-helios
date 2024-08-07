@@ -11,6 +11,7 @@ use ethers::{
     prelude::{Address, U256},
     types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
+use ethers::prelude::EIP1186ProofResponse;
 use execution::types::CallOpts;
 use eyre::{eyre, Result};
 use tracing::{info, warn};
@@ -270,6 +271,16 @@ impl<DB: Database> Client<DB> {
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         self.node.estimate_gas(opts).await.map_err(|err| err.into())
+    }
+
+    /// Expose the `get_proof` method from inner [`Node`]
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        self.node.get_proof(address, slots, block).await
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {

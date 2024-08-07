@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethers::{
     abi::AbiDecode,
-    types::{Address, H256, U256},
+    types::{Address, U256},
 };
 use eyre::Report;
 use thiserror::Error;
@@ -11,7 +11,7 @@ pub enum ExecutionError {
     #[error("invalid account proof for address: {0}")]
     InvalidAccountProof(Address),
     #[error("invalid storage proof for address: {0}, slot: {1}")]
-    InvalidStorageProof(Address, H256),
+    InvalidStorageProof(Address, U256),
     #[error("code hash mismatch for address: {0}, found: {1}, expected: {2}")]
     CodeHashMismatch(Address, String, String),
     #[error("receipt root mismatch for tx: {0}")]
