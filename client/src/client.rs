@@ -103,7 +103,7 @@ impl ClientBuilder {
         self
     }
 
-    pub fn get_configuration(&self) -> Result<Config> {
+    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
         let base_config = if let Some(network) = self.network {
             network.to_base_config()
         } else {
@@ -216,11 +216,6 @@ impl ClientBuilder {
             strict_checkpoint_age,
             database_type: None,
         };
-
-        Ok(config)
-    }
-    pub fn build<DB: Database>(self) -> Result<Client<DB>> {
-        let config = self.get_configuration()?;
 
         Client::<DB>::new(config)
     }
