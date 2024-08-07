@@ -6,6 +6,7 @@ use config::{CheckpointFallback, Config, Network};
 use eyre::{eyre, Result};
 use futures::future::join_all;
 use milagro_bls::PublicKey;
+use serde::{Deserialize, Serialize};
 use ssz_rs::prelude::*;
 use tokio::sync::{
     mpsc::{channel, Receiver, Sender},
@@ -29,18 +30,22 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     phantom: PhantomData<R>,
 }
 
-#[derive(Debug)]
-pub struct ConsensusEngine<R: ConsensusRpc> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsensusStateManager<R: ConsensusRpc> {
+    #[serde(skip)]
     rpc: R,
     store: LightClientStore,
-    last_checkpoint: Option<Vec<u8>>,
+    pub last_checkpoint: Option<Vec<u8>>,
+    #[serde(skip)]
     block_send: Option<Sender<Block>>,
+    #[serde(skip)]
     finalized_block_send: Option<watch::Sender<Option<Block>>>,
+    #[serde(skip)]
     checkpoint_send: Option<watch::Sender<Option<Vec<u8>>>>,
-    pub config: Arc<Config>,
+    pub config: Config,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LightClientStore {
     finalized_header: Header,
     current_sync_committee: SyncCommittee,
@@ -71,7 +76,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
-            let mut consensus_engine = ConsensusEngine::<R>::new(
+            let mut consensus_state_manager = ConsensusStateManager::<R>::new(
                 &rpc,
                 Some(block_send),
                 Some(finalized_block_send),
@@ -80,17 +85,18 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 None,
             );
 
-            let res = consensus_engine.sync(&initial_checkpoint).await;
+            let res = consensus_state_manager.sync(&initial_checkpoint).await;
             if let Err(err) = res {
                 if config.load_external_fallback {
                     let res =
-                        sync_all_fallbacks(&mut consensus_engine, config.chain.chain_id).await;
+                        sync_all_fallbacks(&mut consensus_state_manager, config.chain.chain_id)
+                            .await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
                     }
                 } else if let Some(fallback) = &config.fallback {
-                    let res = sync_fallback(&mut consensus_engine, fallback).await;
+                    let res = sync_fallback(&mut consensus_state_manager, fallback).await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
@@ -101,11 +107,11 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 }
             }
 
-            _ = consensus_engine.send_blocks().await;
+            _ = consensus_state_manager.send_blocks().await;
 
             loop {
                 zduny_wasm_timer::Delay::new(
-                    consensus_engine
+                    consensus_state_manager
                         .duration_until_next_update()
                         .to_std()
                         .unwrap(),
@@ -113,13 +119,13 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 .await
                 .unwrap();
 
-                let res = consensus_engine.advance().await;
+                let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "advance error: {}", err);
                     continue;
                 }
 
-                let res = consensus_engine.send_blocks().await;
+                let res = consensus_state_manager.send_blocks().await;
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "send error: {}", err);
                     continue;
@@ -155,7 +161,7 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 }
 
 async fn sync_fallback<R: ConsensusRpc>(
-    inner: &mut ConsensusEngine<R>,
+    inner: &mut ConsensusStateManager<R>,
     fallback: &str,
 ) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
@@ -163,7 +169,7 @@ async fn sync_fallback<R: ConsensusRpc>(
 }
 
 async fn sync_all_fallbacks<R: ConsensusRpc>(
-    inner: &mut ConsensusEngine<R>,
+    inner: &mut ConsensusStateManager<R>,
     chain_id: u64,
 ) -> Result<()> {
     let network = Network::from_chain_id(chain_id)?;
@@ -176,7 +182,7 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(
     inner.sync(checkpoint.as_bytes()).await
 }
 
-impl<R: ConsensusRpc> ConsensusEngine<R> {
+impl<R: ConsensusRpc> ConsensusStateManager<R> {
     pub fn new(
         rpc: &str,
         block_send: Option<Sender<Block>>,
@@ -184,17 +190,17 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         checkpoint_send: Option<watch::Sender<Option<Vec<u8>>>>,
         config: Arc<Config>,
         checkpoint: Option<Vec<u8>>,
-    ) -> ConsensusEngine<R> {
+    ) -> ConsensusStateManager<R> {
         let rpc = R::new(rpc);
 
-        ConsensusEngine {
+        ConsensusStateManager {
             rpc,
             store: LightClientStore::default(),
             last_checkpoint: checkpoint,
             block_send,
             finalized_block_send,
             checkpoint_send,
-            config,
+            config: (*config).clone(),
         }
     }
 
@@ -266,7 +272,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
                         format!("{prev_parent_hash:02X?}"),
                         format!("{:02X?}", payload.parent_hash()),
                     ),
-                    "error while backfilling blocks"
+                    "error while back filling blocks"
                 );
                 break;
             }
@@ -303,7 +309,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
 
         info!(
             target: "helios::consensus",
-            "consensus client in sync with checkpoint: 0x{}",
+            "Consensus client in sync with checkpoint: 0x{}",
             hex::encode(checkpoint)
         );
 
@@ -320,7 +326,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            debug!(target: "helios::consensus", "checking for sync committee update");
+            debug!(target: "helios::consensus", "Checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot.into());
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
@@ -329,7 +335,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
                 let res = self.verify_update(update);
 
                 if res.is_ok() {
-                    info!(target: "helios::consensus", "updating sync committee");
+                    info!(target: "helios::consensus", "Updating sync committee");
                     self.apply_update(update);
                 }
             }
@@ -367,7 +373,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
     }
 
     /// Gets the duration until the next update
-    /// Updates are scheduled for 4 seconds into each slot
+    /// Updates are scheduled for 4 seconds into each slot.
     pub fn duration_until_next_update(&self) -> Duration {
         let current_slot = self.expected_current_slot();
         let next_slot = current_slot + 1;
@@ -432,7 +438,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
     }
 
     // implements checks from validate_light_client_update and process_light_client_update in the
-    // specification
+    // specification.
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
@@ -504,7 +510,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-        let is_valid_sig = self.verify_sync_committee_signture(
+        let is_valid_sig = self.verify_sync_committee_signature(
             &pks,
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
@@ -534,7 +540,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
     }
 
     // implements state changes from apply_light_client_update and process_light_client_update in
-    // the specification
+    // the specification.
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
@@ -567,7 +573,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         let should_apply_update = {
             let has_majority = committee_bits * 3 >= 512 * 2;
             if !has_majority {
-                tracing::warn!("skipping block with low vote count");
+                warn!("skipping block with low vote count");
             }
 
             let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
@@ -674,7 +680,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         ) / 2
     }
 
-    fn verify_sync_committee_signture(
+    fn verify_sync_committee_signature(
         &self,
         pks: &[PublicKey],
         attested_header: &Header,
@@ -707,7 +713,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         let expected_time = self.slot_timestamp(slot);
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
-        chrono::Duration::from_std(delay).unwrap()
+        Duration::from_std(delay).unwrap()
     }
 
     fn expected_current_slot(&self) -> u64 {
@@ -722,7 +728,7 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old
+    // Determines blockhash_slot age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
@@ -746,13 +752,13 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
     ///
     /// # Process
     ///
-    /// 1. **Bootstrap:** Initializes the synchronization process using the provided checkpoint.
+    /// 1. **Bootstrap: ** Initializes the synchronization process using the provided checkpoint.
     ///    This step involves setting up the local state to match the state at the checkpoint.
     ///
-    /// 2. **Fetch Updates:** Retrieves updates from the blockchain for the current period. The
+    /// 2. **Fetch Updates: ** Retrieves updates from the blockchain for the current period. The
     ///    current period is calculated based on the slot of the last finalized header.
     ///
-    /// 3. **Verify and Apply Updates:**
+    /// 3. **Verify and Apply Updates: **
     ///    - For each update fetched, it first verifies the update for correctness and then applies
     ///      the update to the local state.
     ///    - Verifies and applies a finality update, which includes updates that have been finalized
@@ -823,6 +829,18 @@ impl<R: ConsensusRpc> ConsensusEngine<R> {
     }
 }
 
+/// Extracts the public keys of committee members who have participated, based on a bitfield.
+///
+/// Iterates over the provided bitfield, where each bit represents the participation
+/// status of a committee member (`1` for participated, `0` for not).
+/// For each bit set to `1`, the corresponding public key from the committee is
+/// extracted and included in the returned list.
+///
+/// # Arguments
+/// * `committee` – A reference to the [`SyncCommittee`] struct, which contains the public keys of
+///   all committee members.
+/// * `bitfield` – A reference to a [`Bitvector<512>`] representing the participation status of each
+///   committee member.
 fn get_participating_keys(
     committee: &SyncCommittee,
     bitfield: &Bitvector<512>,
@@ -839,6 +857,7 @@ fn get_participating_keys(
     Ok(pks)
 }
 
+/// Counts the number of bits set to `true` in a given [`Bitvector<512>`].
 fn get_bits(bitfield: &Bitvector<512>) -> u64 {
     let mut count = 0;
     bitfield.iter().for_each(|bit| {
@@ -858,6 +877,19 @@ fn is_finality_proof_valid(
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
 
+/// Validates the proof of the next sync committee.
+///
+/// This function checks if the provided `next_committee` is valid by verifying the proof
+/// against the `attested_header` and `next_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 23, respectively.
+/// # Arguments
+/// * `attested_header` – A reference to the [`Header`] struct representing the header that was
+///   attested.
+/// * `next_committee` – A mutable reference to the [`SyncCommittee`] struct representing the next
+///   sync committee to be validated.
+/// * `next_committee_branch` – A slice of [`Bytes32`] representing the Merkle branch used to
+///   validate the committee.
 fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
@@ -872,6 +904,19 @@ fn is_next_committee_proof_valid(
     )
 }
 
+/// Validates the proof of the next sync committee.
+///
+/// This function checks if the provided `current_committee` is valid by verifying the proof
+/// against the `attested_header` and `current_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 22, respectively.
+/// # Arguments
+/// * `attested_header` – A reference to the [`Header`] struct representing the header that was
+///   attested.
+/// * `current_committee` – A mutable reference to the [`SyncCommittee`] struct representing the
+///   next sync committee to be validated.
+/// * `current_committee_branch` – A slice of [`Bytes32`] representing the Merkle branch used to
+///   validate the committee.
 fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
@@ -899,10 +944,10 @@ mod tests {
         errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::{BLSPubKey, Header, SignatureBytes},
-        ConsensusEngine,
+        ConsensusStateManager,
     };
 
-    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> ConsensusEngine<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> ConsensusStateManager<MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
@@ -921,7 +966,7 @@ mod tests {
         let (finalized_block_send, _) = watch::channel(None);
         let (channel_send, _) = watch::channel(None);
 
-        let mut client = ConsensusEngine::new(
+        let mut client = ConsensusStateManager::new(
             "testdata/",
             Some(block_send),
             Some(finalized_block_send),
