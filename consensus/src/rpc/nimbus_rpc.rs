@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 use super::ConsensusRpc;
 use crate::{constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, types::*};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct NimbusRpc {
     rpc: String,
 }
@@ -25,7 +25,7 @@ async fn get<R: DeserializeOwned>(req: &str) -> Result<R> {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(target_arch = "wasm32", async_trait(? Send))]
 impl ConsensusRpc for NimbusRpc {
     fn new(rpc: &str) -> Self {
         NimbusRpc {

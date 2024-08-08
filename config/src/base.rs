@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     types::{ChainConfig, Forks},
     utils::{bytes_deserialize, bytes_serialize, default_max_checkpoint_age},
+    Config,
 };
 
 /// Directory name for dWallet configuration files.
@@ -68,7 +69,7 @@ impl Default for BaseConfig {
 }
 
 impl BaseConfig {
-    /// Load local network configuration from Yaml file.
+    /// Load local network configuration from YAML file.
     pub fn from_yaml_file() -> anyhow::Result<Self> {
         let path = dwallet_config_dir()?.join(ETH_LOCAL_NETWORK_CONFIG);
 
@@ -76,6 +77,24 @@ impl BaseConfig {
         let config: BaseConfig = serde_yaml::from_str(&file_content)?;
 
         Ok(config)
+    }
+    pub fn as_config(&self) -> Config {
+        Config {
+            rpc_bind_ip: Some(self.rpc_bind_ip),
+            rpc_port: Some(self.rpc_port),
+            consensus_rpc: self.consensus_rpc.clone().unwrap_or_default(),
+            default_checkpoint: self.default_checkpoint.clone(),
+            chain: self.chain.clone(),
+            forks: self.forks.clone(),
+            max_checkpoint_age: self.max_checkpoint_age,
+            data_dir: self.data_dir.clone(),
+            load_external_fallback: self.load_external_fallback,
+            strict_checkpoint_age: self.strict_checkpoint_age,
+            execution_rpc: "".to_string(),
+            checkpoint: None,
+            fallback: None,
+            database_type: None,
+        }
     }
 }
 

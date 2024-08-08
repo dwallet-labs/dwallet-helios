@@ -8,7 +8,7 @@ use common::types::{Block, BlockTag};
 use config::{networks::Network, Config};
 use consensus::database::Database;
 use ethers::{
-    prelude::{Address, U256},
+    prelude::{Address, EIP1186ProofResponse, U256},
     types::{Filter, Log, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
 use execution::types::CallOpts;
@@ -270,6 +270,16 @@ impl<DB: Database> Client<DB> {
 
     pub async fn estimate_gas(&self, opts: &CallOpts) -> Result<u64> {
         self.node.estimate_gas(opts).await.map_err(|err| err.into())
+    }
+
+    /// Expose the `get_proof` method from inner [`Node`]
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        self.node.get_proof(address, slots, block).await
     }
 
     pub async fn get_balance(&self, address: &Address, block: BlockTag) -> Result<U256> {
