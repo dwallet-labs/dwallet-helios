@@ -232,6 +232,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         }
     }
 
+    /// Get the latest finalized slot from the store.
     pub fn get_latest_slot(&self) -> U64 {
         self.store.finalized_header.slot
     }
