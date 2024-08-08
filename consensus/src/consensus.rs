@@ -161,15 +161,15 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
 }
 
 async fn sync_fallback<R: ConsensusRpc>(
-    inner: &mut ConsensusStateManager<R>,
+    consensus_state_manager: &mut ConsensusStateManager<R>,
     fallback: &str,
 ) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
-    inner.sync(checkpoint.as_bytes()).await
+    consensus_state_manager.sync(checkpoint.as_bytes()).await
 }
 
 async fn sync_all_fallbacks<R: ConsensusRpc>(
-    inner: &mut ConsensusStateManager<R>,
+    consensus_state_manager: &mut ConsensusStateManager<R>,
     chain_id: u64,
 ) -> Result<()> {
     let network = Network::from_chain_id(chain_id)?;
@@ -179,7 +179,7 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(
         .fetch_latest_checkpoint(&network)
         .await?;
 
-    inner.sync(checkpoint.as_bytes()).await
+    consensus_state_manager.sync(checkpoint.as_bytes()).await
 }
 
 impl<R: ConsensusRpc> ConsensusStateManager<R> {
