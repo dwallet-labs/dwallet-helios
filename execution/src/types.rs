@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt};
 
-use ethers::types::{Address, Bytes, H256, U256};
+pub use ethers::types::Address;
+use ethers::types::{Bytes, H256, U256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone)]

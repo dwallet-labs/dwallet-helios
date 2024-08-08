@@ -74,7 +74,7 @@ pub mod config {
 pub mod types {
     pub use common::types::{Block, BlockTag, Transactions};
     pub use consensus::types::{AggregateUpdates, FinalityUpdate, OptimisticUpdate, Update};
-    pub use execution::types::{Account, CallOpts};
+    pub use execution::types::{Account, Address, CallOpts};
 }
 
 pub mod errors {
@@ -88,6 +88,5 @@ pub mod prelude {
 }
 
 pub mod dwallet {
-    pub use consensus::{rpc, ConsensusStateManager};
     pub use dwallet::*;
 }

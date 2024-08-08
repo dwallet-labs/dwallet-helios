@@ -45,18 +45,6 @@ pub struct ConsensusStateManager<R: ConsensusRpc> {
     pub config: Config,
 }
 
-impl<R: ConsensusRpc> ConsensusStateManager<R> {
-    pub fn set_rpc(&mut self, rpc: &str) -> &mut Self {
-        self.rpc = R::new(rpc);
-        self
-    }
-
-    pub fn set_configuration(&mut self, config: Config) -> &mut Self {
-        self.config = config;
-        self
-    }
-}
-
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct LightClientStore {
     finalized_header: Header,
@@ -128,8 +116,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                .await
-                .unwrap();
+                    .await
+                    .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -216,6 +204,24 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         }
     }
 
+    /// Creates a new [`ConsensusStateManager`] with only a checkpoint and network configuration.
+    /// Checkpoint should be a verified checkpoint from a trusted source.
+    /// The object that is created does not include any state in it's [`LightClientStore`].
+    /// The state will be first fetched on bootstrapping.
+    pub fn new_from_checkpoint(checkpoint: Vec<u8>, network: Network) -> ConsensusStateManager<R> {
+        let rpc = R::new("");
+        let config = network.to_base_config().as_config();
+        ConsensusStateManager {
+            rpc,
+            config,
+            last_checkpoint: Some(checkpoint),
+            store: LightClientStore::default(),
+            block_send: None,
+            finalized_block_send: None,
+            checkpoint_send: None,
+        }
+    }
+
     pub async fn check_rpc(&self) -> Result<()> {
         let chain_id = self.rpc.chain_id().await?;
 
@@ -228,6 +234,18 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
 
     pub fn get_latest_slot(&self) -> U64 {
         self.store.finalized_header.slot
+    }
+
+    /// Set the RPC URL for the consensus client.
+    pub fn set_rpc(&mut self, rpc: &str) -> &mut Self {
+        self.rpc = R::new(rpc);
+        self
+    }
+
+    /// Set the network configuration for the consensus client.
+    pub fn set_configuration(&mut self, config: Config) -> &mut Self {
+        self.config = config;
+        self
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
@@ -251,7 +269,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
