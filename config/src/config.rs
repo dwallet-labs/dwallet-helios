@@ -72,7 +72,7 @@ impl Config {
                         println!("\n\ttry supplying the proper command line argument: --{field}");
 
                         println!("\talternatively, you can add the field to your helios.toml file or as an environment variable");
-                        println!("\nfor more information, check the github README");
+                        println!("\nfor more information, check the GitHub README");
                     }
                     _ => println!("cannot parse configuration: {err}"),
                 }
