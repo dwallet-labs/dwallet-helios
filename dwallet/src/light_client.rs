@@ -16,7 +16,7 @@ use execution::types::ProofVerificationInput;
 
 use crate::utils::{create_account_proof, extract_storage_proof};
 
-/// Interface of the Ethereum light client for dWallet network
+/// Interface of the Ethereum light client for dWallet network.
 pub struct EthLightClientWrapper {
     client: Client<FileDB>,
 }
@@ -29,7 +29,7 @@ pub struct EthLightClientConfig {
     pub execution_rpc: String,
     // Consensus RPC URL.
     pub consensus_rpc: String,
-    // Checkpoint
+    // Checkpoint.
     pub checkpoint: String,
 }
 
@@ -72,14 +72,14 @@ impl EthLightClientWrapper {
 
     /// Initializes a new Ethereum light client.
     ///
-    /// Creates a new instance of `EthLightClient` using the provided
-    /// configuration and eth_state. It constructs the client by calling the `new` method,
+    /// Creates a new instance of [`EthLightClientWrapper`] using the provided
+    /// configuration.
+    /// It constructs the client by calling the `new` method,
     /// which also syncs the state of the client.
-    /// If successful, it returns the initialized `EthLightClient` instance.
+    /// If successful, it returns the initialized [`EthLightClientWrapper`] instance.
     ///
     /// # Arguments
-    /// * `eth_client_config` - A configuration struct for the Ethereum light client.
-    /// * `eth_state` - The current state of the Ethereum light client.
+    /// * `eth_client_config` – A configuration struct for the Ethereum light client.
     pub async fn init_new_light_client(
         eth_client_config: EthLightClientConfig,
     ) -> Result<EthLightClientWrapper, anyhow::Error> {

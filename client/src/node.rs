@@ -63,15 +63,14 @@ impl<DB: Database> Node<DB> {
             .map_err(NodeError::ExecutionEvmError)
     }
 
-    /// Returns the proof for the given address, slots and block
+    /// Returns the proof for the given address, slots and block.
     pub async fn get_proof(
         &self,
         address: &Address,
         slots: &[H256],
         block: u64,
     ) -> Result<EIP1186ProofResponse> {
-        let proof = self.execution.get_proof(address, slots, block).await?;
-        Ok(proof)
+        self.execution.get_proof(address, slots, block).await
     }
 
     pub async fn get_balance(&self, address: &Address, tag: BlockTag) -> Result<U256> {
