@@ -188,7 +188,7 @@ impl<R: ExecutionRpc> EvmState<R> {
                         .await?;
 
                     let storage = self.storage.entry(*address).or_default();
-                    let slot_ethers_u256 = &slot.as_le_bytes();
+                    let slot = &slot.as_le_bytes();
                     let slot_ethers_u256 =
                         ethers::prelude::U256::from_little_endian(slot_ethers_u256);
                     let value = *account.slots.get(&slot_ethers_u256).unwrap();
