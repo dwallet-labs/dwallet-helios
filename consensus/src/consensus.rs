@@ -30,6 +30,8 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     phantom: PhantomData<R>,
 }
 
+/// This struct's original name was `Inner`, but it was renamed to `ConsensusStateManager`
+/// as part of refactoring to use it independently, without the `ConsensusClient` wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsensusStateManager<R: ConsensusRpc> {
     #[serde(skip)]
@@ -116,8 +118,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                .await
-                .unwrap();
+                    .await
+                    .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -235,7 +237,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -309,7 +311,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
 
         info!(
             target: "helios::consensus",
-            "Consensus client in sync with checkpoint: 0x{}",
+            "Consensus client in sync with the checkpoint: 0x{}",
             hex::encode(checkpoint)
         );
 
