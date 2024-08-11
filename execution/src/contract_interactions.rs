@@ -17,9 +17,9 @@
 use ethers::{
     abi::ethabi::{encode, Token},
     types::H256,
+    utils::keccak256,
 };
 use eyre::Error;
-use sha3::{Digest, Keccak256};
 
 /// Calculates the mapping slot for a given key and storage slot (in the contract's storage layout).
 /// First initializes a new `Keccak256` hasher, then standardizes the input slot and key.
@@ -32,17 +32,17 @@ use sha3::{Digest, Keccak256};
 /// * `Mapping_slot` – A `u64` value that represents the mapping slot in the contract storage layout.
 ///   [For more info](https://docs.soliditylang.org/en/v0.8.24/internals/layout_in_storage.html#mappings-and-dynamic-arrays)
 #[allow(unused)]
-fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
+fn calculate_mapping_slot_for_key(key: H256, mapping_slot: u64) -> H256 {
     let slot_encoded = encode(&[Token::Uint(mapping_slot.into())]);
     let slot_encoded = H256::from_slice(&slot_encoded);
 
     let key_encoded = encode(&[Token::FixedBytes(key.as_bytes().to_vec())]);
     let key_encoded = H256::from_slice(&key_encoded);
 
-    let mut hasher = Keccak256::new();
-    hasher.update(key_encoded.as_bytes());
-    hasher.update(slot_encoded.as_bytes());
-    H256::from_slice(&hasher.finalize())
+    let mut hasher = Vec::new();
+    hasher.extend_from_slice(key_encoded.as_bytes());
+    hasher.extend_from_slice(slot_encoded.as_bytes());
+    H256::from_slice(&keccak256(&hasher))
 }
 
 /// Calculates the key for a given message and dWallet ID.
@@ -50,10 +50,8 @@ fn calculate_mapping_slot(key: H256, mapping_slot: u64) -> H256 {
 /// together. The result is a H256 hash that represents the key.
 #[allow(unused)]
 fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
-    let mut hasher = Keccak256::new();
     message.extend_from_slice(dwallet_id.as_slice());
-    hasher.update(message);
-    H256::from_slice(&hasher.finalize())
+    H256::from_slice(&keccak256(&message))
 }
 
 /// Calculates the storage slot for a given message, dWallet ID, and data slot.
@@ -79,11 +77,12 @@ pub fn get_message_storage_slot(
         message.clone().as_bytes().to_vec(),
         dwallet_id.as_slice().to_vec(),
     );
-    Ok(calculate_mapping_slot(key, data_slot))
+    Ok(calculate_mapping_slot_for_key(key, data_slot))
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -92,39 +91,35 @@ mod tests {
         let slot = 0;
 
         let expected_hash = {
-            let mut hasher = Keccak256::new();
-            hasher.update([0u8; 32]);
-            hasher.update([0u8; 32]);
-            H256::from_slice(&hasher.finalize())
+            let mut hasher = Vec::new();
+            hasher.extend([0u8; 32]);
+            hasher.extend([0u8; 32]);
+            H256::from_slice(keccak256(&hasher).as_slice())
         };
 
-        assert_eq!(expected_hash, calculate_mapping_slot(key, slot));
+        assert_eq!(expected_hash, calculate_mapping_slot_for_key(key, slot));
 
         let key = H256::from_slice(&[1u8; 32]);
         let slot = u64::MAX;
 
         let expected_hash = {
-            let mut hasher = Keccak256::new();
-            hasher.update([1u8; 32]);
-            hasher.update([
+            let mut hasher = Vec::new();
+            hasher.extend([1u8; 32]);
+            hasher.extend([
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255,
                 255, 255, 255, 255, 255, 255,
             ]);
-            H256::from_slice(&hasher.finalize())
+            H256::from_slice(keccak256(&hasher).as_slice())
         };
 
-        assert_eq!(expected_hash, calculate_mapping_slot(key, slot));
+        assert_eq!(expected_hash, calculate_mapping_slot_for_key(key, slot));
     }
 
     #[test]
     fn calculate_key_valid() {
         let message: Vec<u8> = vec![];
         let dwallet_id: Vec<u8> = vec![];
-        let expected_hash = {
-            let mut hasher = Keccak256::new();
-            hasher.update([]);
-            H256::from_slice(&hasher.finalize())
-        };
+        let expected_hash = { H256::from_slice(&keccak256(Vec::new())) };
 
         assert_eq!(expected_hash, calculate_key(message, dwallet_id));
 
@@ -133,11 +128,9 @@ mod tests {
         let message = [1u8; 32].to_vec();
 
         let expected_hash = {
-            let mut hasher = Keccak256::new();
             let mut combined = message.clone();
             combined.extend_from_slice(&byte_vec_dwallet_id);
-            hasher.update(combined);
-            H256::from_slice(&hasher.finalize())
+            H256::from_slice(keccak256(&combined).as_slice())
         };
 
         assert_eq!(expected_hash, calculate_key(message, byte_vec_dwallet_id))
@@ -154,7 +147,7 @@ mod tests {
             message.clone().as_bytes().to_vec(),
             byte_vec_dwallet_id.clone(),
         );
-        let expected_slot = calculate_mapping_slot(key, data_slot);
+        let expected_slot = calculate_mapping_slot_for_key(key, data_slot);
 
         let result = get_message_storage_slot(message, byte_vec_dwallet_id, data_slot).unwrap();
 
