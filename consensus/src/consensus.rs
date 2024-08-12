@@ -30,6 +30,8 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     phantom: PhantomData<R>,
 }
 
+/// This struct's original name was `Inner`, but it was renamed to `ConsensusStateManager`
+/// as part of refactoring to use it independently, without the `ConsensusClient` wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsensusStateManager<R: ConsensusRpc> {
     #[serde(skip)]
@@ -353,7 +355,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
 
         info!(
             target: "helios::consensus",
-            "Consensus client in sync with checkpoint: 0x{}",
+            "Consensus client in sync with the checkpoint: 0x{}",
             hex::encode(checkpoint)
         );
 
@@ -919,10 +921,9 @@ fn is_finality_proof_valid(
 /// Validates the proof of the next sync committee.
 ///
 /// This function checks if the provided `next_committee` is valid by verifying the proof
-/// against the `attested_header` and `next_committee_branch`.
-/// It uses a specific proof validation method that requires the indices of the start,
-/// and the end of the committee in the Merkle tree, which are hardcoded as 5 and 23, respectively.
-///
+/// against the `attested_header` and `next_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 23, respectively.
 /// # Arguments
 /// * `attested_header` – A reference to the [`Header`] struct representing the header that was
 ///   attested.
@@ -947,10 +948,9 @@ fn is_next_committee_proof_valid(
 /// Validates the proof of the next sync committee.
 ///
 /// This function checks if the provided `current_committee` is valid by verifying the proof
-/// against the `attested_header` and `current_committee_branch`.
-/// It uses a specific proof validation method that requires the indices of the start,
-/// and the end of the committee in the Merkle tree, which are hardcoded as 5 and 22, respectively.
-///
+/// against the `attested_header` and `current_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 22, respectively.
 /// # Arguments
 /// * `attested_header` – A reference to the [`Header`] struct representing the header that was
 ///   attested.
