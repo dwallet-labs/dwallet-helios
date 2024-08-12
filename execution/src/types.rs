@@ -11,6 +11,8 @@ pub struct Account {
     pub code_hash: H256,
     pub code: Vec<u8>,
     pub storage_hash: H256,
+    // `slots` type changed to HashMap<U256, U256> from HashMap<H256, H256> because of a bugfix in
+    // `ethers` crate. The bugfix is in the `ethers` crate version 2.0.14.
     pub slots: HashMap<U256, U256>,
 }
 

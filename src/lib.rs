@@ -61,6 +61,12 @@
 //!
 //! The `dwallet` module provides a specific light client interface tailored for the unique needs
 //! of the dWallet network.
+//!
+//! ### `execution`
+//! Expose the `verify_proof` function to verify the state proof offline.
+//!
+//! ### `consensus`
+//! Expose the `ConsensusStateManager` and the RPC types for offline consensus state verification.
 
 pub mod client {
     pub use client::{Client, ClientBuilder};
@@ -89,4 +95,12 @@ pub mod prelude {
 
 pub mod dwallet {
     pub use dwallet::*;
+}
+
+pub mod execution {
+    pub use execution::verify_proof;
+}
+
+pub mod consensus {
+    pub use consensus::{rpc::*, ConsensusStateManager};
 }

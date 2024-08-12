@@ -4,7 +4,9 @@ pub mod rpc;
 pub mod types;
 
 mod consensus;
-pub use crate::consensus::*;
+pub use rpc::*;
+
+pub use crate::consensus::{ConsensusStateManager, *};
 
 mod constants;
 mod utils;

@@ -208,6 +208,15 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// Checkpoint should be a verified checkpoint from a trusted source.
     /// The object that is created does not include any state in it's [`LightClientStore`].
     /// The state will be first fetched on bootstrapping.
+    /// # Arguments
+    /// * `checkpoint` - A verified checkpoint from a trusted source.
+    /// * `network` - The network configuration for the consensus client.
+    ///
+    /// # Note
+    /// RPC is not set in this function.
+    /// It should be set using the `set_rpc` function whenever the [`ConsensusStateManager`]
+    /// is used outside `Helios` client.
+    /// This is because you can use the same [`ConsensusStateManager`] object with different RPCs.
     pub fn new_from_checkpoint(checkpoint: Vec<u8>, network: Network) -> ConsensusStateManager<R> {
         let rpc = R::new("");
         let config = network.to_base_config().as_config();

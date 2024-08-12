@@ -1,6 +1,6 @@
 pub use contract_interactions::*;
 pub use execution::*;
-pub use proof::*;
+pub use proof::{verify_proof, *};
 
 pub mod constants;
 pub mod errors;

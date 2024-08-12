@@ -33,7 +33,11 @@ pub(crate) fn create_account_proof(
 }
 
 /// Encodes an Ethereum account using RLP encoding according to the Ethereum specifications.
-/// More info [here](https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/).
+/// These four elements are the fundamental components of an Ethereum account,
+/// and thus they are the ones that need to be encoded to represent the account’s state fully.
+/// You can read more about accounts' state
+/// in [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper.pdf), section 4.1.
+/// More info about RLP encoding [here](https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/).
 pub(crate) fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
     let mut stream = RlpStream::new_list(4);
     stream.append(&proof.nonce);
