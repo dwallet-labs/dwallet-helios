@@ -258,9 +258,9 @@ impl<DB: Database> Client<DB> {
     }
 
     pub async fn shutdown(&self) {
-        info!(target: "helios::client","shutting down");
+        info!(target: "helios::client","Shutting down");
         if let Err(err) = self.node.consensus.shutdown() {
-            warn!(target: "helios::client", error = %err, "graceful shutdown failed");
+            warn!(target: "helios::client", error = %err, "the graceful shutdown failed");
         }
     }
 
