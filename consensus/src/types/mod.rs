@@ -8,7 +8,7 @@ use self::{
 };
 
 pub mod primitives;
-mod utils;
+pub(crate) mod utils;
 
 pub type Address = ByteVector<20>;
 pub type Bytes32 = ByteVector<32>;

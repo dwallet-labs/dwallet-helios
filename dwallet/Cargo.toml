@@ -1,0 +1,15 @@
+[package]
+name = "dwallet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+consensus = { path = "../consensus" }
+execution = { path = "../execution" }
+client = { path = "../client" }
+config = { path = "../config" }
+
+ethers.workspace = true
+eyre.workspace = true
+anyhow.workspace = true
+serde.workspace = true

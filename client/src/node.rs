@@ -4,7 +4,7 @@ use common::types::{Block, BlockTag};
 use config::Config;
 use consensus::{database::Database, rpc::nimbus_rpc::NimbusRpc, ConsensusClient};
 use ethers::{
-    prelude::{Address, U256},
+    prelude::{Address, EIP1186ProofResponse, U256},
     types::{Filter, Log, SyncProgress, SyncingStatus, Transaction, TransactionReceipt, H256},
 };
 use execution::{evm::Evm, rpc::http_rpc::HttpRpc, state::State, types::CallOpts, ExecutionClient};
@@ -63,6 +63,16 @@ impl<DB: Database> Node<DB> {
             .map_err(NodeError::ExecutionEvmError)
     }
 
+    /// Returns the proof for the given address, slots and block.
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        self.execution.get_proof(address, slots, block).await
+    }
+
     pub async fn get_balance(&self, address: &Address, tag: BlockTag) -> Result<U256> {
         self.check_blocktag_age(&tag).await?;
 
@@ -111,6 +121,7 @@ impl<DB: Database> Node<DB> {
             .get_account(address, Some(&[slot]), tag)
             .await?;
 
+        let slot = U256::from(slot.as_bytes());
         let value = account.slots.get(&slot);
         match value {
             Some(value) => Ok(*value),
@@ -167,7 +178,7 @@ impl<DB: Database> Node<DB> {
         self.execution.get_new_pending_transaction_filter().await
     }
 
-    // assumes tip of 1 gwei to prevent having to prove out every tx in the block
+    // Assumes a tip of 1 `gwei` to prevent having to prove out every tx in the block.
     pub async fn get_gas_price(&self) -> Result<U256> {
         self.check_head_age().await?;
 
@@ -177,7 +188,7 @@ impl<DB: Database> Node<DB> {
         Ok(base_fee + tip)
     }
 
-    // assumes tip of 1 gwei to prevent having to prove out every tx in the block
+    // Assumes a tip of 1 `gwei` to prevent having to prove out every tx in the block.
     pub fn get_priority_fee(&self) -> Result<U256> {
         let tip = U256::from(10_u64.pow(9));
         Ok(tip)

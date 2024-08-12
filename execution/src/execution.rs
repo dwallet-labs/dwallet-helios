@@ -7,7 +7,7 @@ use common::{
 };
 use ethers::{
     abi::AbiEncode,
-    prelude::Address,
+    prelude::{Address, EIP1186ProofResponse},
     types::{Filter, Log, Transaction, TransactionReceipt, H256, U256},
     utils::{
         keccak256,
@@ -48,6 +48,16 @@ impl<R: ExecutionRpc> ExecutionClient<R> {
         } else {
             Ok(())
         }
+    }
+
+    /// Calls `get_proof` on the RPC with the given parameters.
+    pub async fn get_proof(
+        &self,
+        address: &Address,
+        slots: &[H256],
+        block_number: u64,
+    ) -> Result<EIP1186ProofResponse> {
+        self.rpc.get_proof(address, slots, block_number).await
     }
 
     pub async fn get_account(

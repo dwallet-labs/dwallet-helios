@@ -206,6 +206,33 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         }
     }
 
+    /// Creates a new [`ConsensusStateManager`] with only a checkpoint and network configuration.
+    /// Checkpoint should be a verified checkpoint from a trusted source.
+    /// The object that is created does not include any state in it's [`LightClientStore`].
+    /// The state will be first fetched on bootstrapping.
+    /// # Arguments
+    /// * `checkpoint` - A verified checkpoint from a trusted source.
+    /// * `network` - The network configuration for the consensus client.
+    ///
+    /// # Note
+    /// RPC is not set in this function.
+    /// It should be set using the `set_rpc` function whenever the [`ConsensusStateManager`]
+    /// is used outside `Helios` client.
+    /// This is because you can use the same [`ConsensusStateManager`] object with different RPCs.
+    pub fn new_from_checkpoint(checkpoint: Vec<u8>, network: Network) -> ConsensusStateManager<R> {
+        let rpc = R::new("");
+        let config = network.to_base_config().as_config();
+        ConsensusStateManager {
+            rpc,
+            config,
+            last_checkpoint: Some(checkpoint),
+            store: LightClientStore::default(),
+            block_send: None,
+            finalized_block_send: None,
+            checkpoint_send: None,
+        }
+    }
+
     pub async fn check_rpc(&self) -> Result<()> {
         let chain_id = self.rpc.chain_id().await?;
 
@@ -214,6 +241,23 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         } else {
             Ok(())
         }
+    }
+
+    /// Get the latest finalized slot from the store.
+    pub fn get_latest_slot(&self) -> U64 {
+        self.store.finalized_header.slot
+    }
+
+    /// Set the RPC URL for the consensus client.
+    pub fn set_rpc(&mut self, rpc: &str) -> &mut Self {
+        self.rpc = R::new(rpc);
+        self
+    }
+
+    /// Set the network configuration for the consensus client.
+    pub fn set_configuration(&mut self, config: Config) -> &mut Self {
+        self.config = config;
+        self
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {

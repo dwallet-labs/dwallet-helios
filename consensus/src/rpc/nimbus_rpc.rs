@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 use super::ConsensusRpc;
 use crate::{constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, types::*};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct NimbusRpc {
     rpc: String,
 }
