@@ -6,6 +6,7 @@ use config::{CheckpointFallback, Config, Network};
 use eyre::{eyre, Result};
 use futures::future::join_all;
 use milagro_bls::PublicKey;
+use serde::{Deserialize, Serialize};
 use ssz_rs::prelude::*;
 use tokio::sync::{
     mpsc::{channel, Receiver, Sender},
@@ -17,6 +18,7 @@ use zduny_wasm_timer::{SystemTime, UNIX_EPOCH};
 use super::{rpc::ConsensusRpc, types::*, utils::*};
 use crate::{
     constants::MAX_REQUEST_LIGHT_CLIENT_UPDATES, database::Database, errors::ConsensusError,
+    types::primitives::U64,
 };
 
 pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
@@ -28,18 +30,24 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     phantom: PhantomData<R>,
 }
 
-#[derive(Debug)]
-pub struct Inner<R: ConsensusRpc> {
+/// This struct's original name was `Inner`, but it was renamed to `ConsensusStateManager`
+/// as part of refactoring to use it independently, without the `ConsensusClient` wrapper.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsensusStateManager<R: ConsensusRpc> {
+    #[serde(skip)]
     rpc: R,
     store: LightClientStore,
-    last_checkpoint: Option<Vec<u8>>,
-    block_send: Sender<Block>,
-    finalized_block_send: watch::Sender<Option<Block>>,
-    checkpoint_send: watch::Sender<Option<Vec<u8>>>,
-    pub config: Arc<Config>,
+    pub last_checkpoint: Option<Vec<u8>>,
+    #[serde(skip)]
+    block_send: Option<Sender<Block>>,
+    #[serde(skip)]
+    finalized_block_send: Option<watch::Sender<Option<Block>>>,
+    #[serde(skip)]
+    checkpoint_send: Option<watch::Sender<Option<Vec<u8>>>>,
+    pub config: Config,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct LightClientStore {
     finalized_header: Header,
     current_sync_committee: SyncCommittee,
@@ -70,24 +78,27 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
         let run = wasm_bindgen_futures::spawn_local;
 
         run(async move {
-            let mut inner = Inner::<R>::new(
+            let mut consensus_state_manager = ConsensusStateManager::<R>::new(
                 &rpc,
-                block_send,
-                finalized_block_send,
-                checkpoint_send,
+                Some(block_send),
+                Some(finalized_block_send),
+                Some(checkpoint_send),
                 config.clone(),
+                None,
             );
 
-            let res = inner.sync(&initial_checkpoint).await;
+            let res = consensus_state_manager.sync(&initial_checkpoint).await;
             if let Err(err) = res {
                 if config.load_external_fallback {
-                    let res = sync_all_fallbacks(&mut inner, config.chain.chain_id).await;
+                    let res =
+                        sync_all_fallbacks(&mut consensus_state_manager, config.chain.chain_id)
+                            .await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
                     }
                 } else if let Some(fallback) = &config.fallback {
-                    let res = sync_fallback(&mut inner, fallback).await;
+                    let res = sync_fallback(&mut consensus_state_manager, fallback).await;
                     if let Err(err) = res {
                         error!(target: "helios::consensus", err = %err, "sync failed");
                         process::exit(1);
@@ -98,20 +109,25 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                 }
             }
 
-            _ = inner.send_blocks().await;
+            _ = consensus_state_manager.send_blocks().await;
 
             loop {
-                zduny_wasm_timer::Delay::new(inner.duration_until_next_update().to_std().unwrap())
-                    .await
-                    .unwrap();
+                zduny_wasm_timer::Delay::new(
+                    consensus_state_manager
+                        .duration_until_next_update()
+                        .to_std()
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
 
-                let res = inner.advance().await;
+                let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "advance error: {}", err);
                     continue;
                 }
 
-                let res = inner.send_blocks().await;
+                let res = consensus_state_manager.send_blocks().await;
                 if let Err(err) = res {
                     warn!(target: "helios::consensus", "send error: {}", err);
                     continue;
@@ -146,12 +162,18 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
     }
 }
 
-async fn sync_fallback<R: ConsensusRpc>(inner: &mut Inner<R>, fallback: &str) -> Result<()> {
+async fn sync_fallback<R: ConsensusRpc>(
+    consensus_state_manager: &mut ConsensusStateManager<R>,
+    fallback: &str,
+) -> Result<()> {
     let checkpoint = CheckpointFallback::fetch_checkpoint_from_api(fallback).await?;
-    inner.sync(checkpoint.as_bytes()).await
+    consensus_state_manager.sync(checkpoint.as_bytes()).await
 }
 
-async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64) -> Result<()> {
+async fn sync_all_fallbacks<R: ConsensusRpc>(
+    consensus_state_manager: &mut ConsensusStateManager<R>,
+    chain_id: u64,
+) -> Result<()> {
     let network = Network::from_chain_id(chain_id)?;
     let checkpoint = CheckpointFallback::new()
         .build()
@@ -159,27 +181,28 @@ async fn sync_all_fallbacks<R: ConsensusRpc>(inner: &mut Inner<R>, chain_id: u64
         .fetch_latest_checkpoint(&network)
         .await?;
 
-    inner.sync(checkpoint.as_bytes()).await
+    consensus_state_manager.sync(checkpoint.as_bytes()).await
 }
 
-impl<R: ConsensusRpc> Inner<R> {
+impl<R: ConsensusRpc> ConsensusStateManager<R> {
     pub fn new(
         rpc: &str,
-        block_send: Sender<Block>,
-        finalized_block_send: watch::Sender<Option<Block>>,
-        checkpoint_send: watch::Sender<Option<Vec<u8>>>,
+        block_send: Option<Sender<Block>>,
+        finalized_block_send: Option<watch::Sender<Option<Block>>>,
+        checkpoint_send: Option<watch::Sender<Option<Vec<u8>>>>,
         config: Arc<Config>,
-    ) -> Inner<R> {
+        checkpoint: Option<Vec<u8>>,
+    ) -> ConsensusStateManager<R> {
         let rpc = R::new(rpc);
 
-        Inner {
+        ConsensusStateManager {
             rpc,
             store: LightClientStore::default(),
-            last_checkpoint: None,
+            last_checkpoint: checkpoint,
             block_send,
             finalized_block_send,
             checkpoint_send,
-            config,
+            config: (*config).clone(),
         }
     }
 
@@ -251,7 +274,7 @@ impl<R: ConsensusRpc> Inner<R> {
                         format!("{prev_parent_hash:02X?}"),
                         format!("{:02X?}", payload.parent_hash()),
                     ),
-                    "error while backfilling blocks"
+                    "error while back filling blocks"
                 );
                 break;
             }
@@ -288,7 +311,7 @@ impl<R: ConsensusRpc> Inner<R> {
 
         info!(
             target: "helios::consensus",
-            "consensus client in sync with checkpoint: 0x{}",
+            "Consensus client in sync with the checkpoint: 0x{}",
             hex::encode(checkpoint)
         );
 
@@ -305,7 +328,7 @@ impl<R: ConsensusRpc> Inner<R> {
         self.apply_optimistic_update(&optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            debug!(target: "helios::consensus", "checking for sync committee update");
+            debug!(target: "helios::consensus", "Checking for sync committee update");
             let current_period = calc_sync_period(self.store.finalized_header.slot.into());
             let mut updates = self.rpc.get_updates(current_period, 1).await?;
 
@@ -314,7 +337,7 @@ impl<R: ConsensusRpc> Inner<R> {
                 let res = self.verify_update(update);
 
                 if res.is_ok() {
-                    info!(target: "helios::consensus", "updating sync committee");
+                    info!(target: "helios::consensus", "Updating sync committee");
                     self.apply_update(update);
                 }
             }
@@ -324,21 +347,35 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     pub async fn send_blocks(&self) -> Result<()> {
-        let slot = self.store.optimistic_header.slot.as_u64();
-        let payload = self.get_execution_payload(&Some(slot)).await?;
-        let finalized_slot = self.store.finalized_header.slot.as_u64();
-        let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
+        if self.block_send.is_some()
+            && self.finalized_block_send.is_some()
+            && self.checkpoint_send.is_some()
+        {
+            let slot = self.store.optimistic_header.slot.as_u64();
+            let payload = self.get_execution_payload(&Some(slot)).await?;
+            let finalized_slot = self.store.finalized_header.slot.as_u64();
+            let finalized_payload = self.get_execution_payload(&Some(finalized_slot)).await?;
 
-        self.block_send.send(payload.into()).await?;
-        self.finalized_block_send
-            .send(Some(finalized_payload.into()))?;
-        self.checkpoint_send.send(self.last_checkpoint.clone())?;
+            self.block_send
+                .as_ref()
+                .unwrap()
+                .send(payload.into())
+                .await?;
+            self.finalized_block_send
+                .as_ref()
+                .unwrap()
+                .send(Some(finalized_payload.into()))?;
+            self.checkpoint_send
+                .as_ref()
+                .unwrap()
+                .send(self.last_checkpoint.clone())?;
+        }
 
         Ok(())
     }
 
     /// Gets the duration until the next update
-    /// Updates are scheduled for 4 seconds into each slot
+    /// Updates are scheduled for 4 seconds into each slot.
     pub fn duration_until_next_update(&self) -> Duration {
         let current_slot = self.expected_current_slot();
         let next_slot = current_slot + 1;
@@ -403,7 +440,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     // implements checks from validate_light_client_update and process_light_client_update in the
-    // specification
+    // specification.
     fn verify_generic_update(&self, update: &GenericUpdate) -> Result<()> {
         let bits = get_bits(&update.sync_aggregate.sync_committee_bits);
         if bits == 0 {
@@ -475,7 +512,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let pks =
             get_participating_keys(sync_committee, &update.sync_aggregate.sync_committee_bits)?;
 
-        let is_valid_sig = self.verify_sync_committee_signture(
+        let is_valid_sig = self.verify_sync_committee_signature(
             &pks,
             &update.attested_header,
             &update.sync_aggregate.sync_committee_signature,
@@ -505,7 +542,7 @@ impl<R: ConsensusRpc> Inner<R> {
     }
 
     // implements state changes from apply_light_client_update and process_light_client_update in
-    // the specification
+    // the specification.
     fn apply_generic_update(&mut self, update: &GenericUpdate) {
         let committee_bits = get_bits(&update.sync_aggregate.sync_committee_bits);
 
@@ -538,7 +575,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let should_apply_update = {
             let has_majority = committee_bits * 3 >= 512 * 2;
             if !has_majority {
-                tracing::warn!("skipping block with low vote count");
+                warn!("skipping block with low vote count");
             }
 
             let update_is_newer = update_finalized_slot > self.store.finalized_header.slot.as_u64();
@@ -645,7 +682,7 @@ impl<R: ConsensusRpc> Inner<R> {
         ) / 2
     }
 
-    fn verify_sync_committee_signture(
+    fn verify_sync_committee_signature(
         &self,
         pks: &[PublicKey],
         attested_header: &Header,
@@ -678,7 +715,7 @@ impl<R: ConsensusRpc> Inner<R> {
         let expected_time = self.slot_timestamp(slot);
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let delay = now - std::time::Duration::from_secs(expected_time);
-        chrono::Duration::from_std(delay).unwrap()
+        Duration::from_std(delay).unwrap()
     }
 
     fn expected_current_slot(&self) -> u64 {
@@ -693,7 +730,7 @@ impl<R: ConsensusRpc> Inner<R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old
+    // Determines blockhash_slot age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
@@ -705,8 +742,102 @@ impl<R: ConsensusRpc> Inner<R> {
 
         slot_age < self.config.max_checkpoint_age
     }
+
+    /// Synchronizes the local state with the blockchain state since the last verified checkpoint.
+    /// Performs a multistep process to ensure the local state is up-to-date with
+    /// the blockchain's state.
+    ///
+    /// # Process
+    ///
+    /// 1. **Bootstrap: ** Initializes the synchronization process using the provided checkpoint.
+    ///    This step involves setting up the local state to match the state at the checkpoint.
+    ///
+    /// 2. **Fetch Updates: ** Retrieves updates from the blockchain for the current period. The
+    ///    current period is calculated based on the slot of the last finalized header.
+    ///
+    /// 3. **Verify and Apply Updates: **
+    ///    - For each update fetched, it first verifies the update for correctness and then applies
+    ///      the update to the local state.
+    ///    - Verifies and applies a finality update, which includes updates that have been finalized
+    ///      and are irreversible.
+    ///    - Verifies and applies an optimistic update, which might still be subject to change but
+    ///      is accepted optimistically to keep the state as current as possible.
+    pub async fn get_updates_since_checkpoint(&mut self) -> Result<AggregateUpdates, eyre::Error> {
+        let checkpoint = match self.last_checkpoint.clone() {
+            Some(checkpoint) => checkpoint,
+            None => return Err(eyre!("no checkpoint provided")),
+        };
+
+        if self.store.finalized_header.slot == U64::from(0)
+            || self.store.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
+        {
+            self.bootstrap(&checkpoint).await?;
+        }
+
+        let current_period = calc_sync_period(self.store.finalized_header.slot.into());
+        let updates = self
+            .rpc
+            .get_updates(current_period, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+            .await?;
+
+        let finality_update = self.rpc.get_finality_update().await?;
+
+        let optimistic_update = self.rpc.get_optimistic_update().await?;
+
+        Ok(AggregateUpdates {
+            updates,
+            finality_update,
+            optimistic_update,
+        })
+    }
+
+    /// Verifies and applies updates to the Ethereum state.
+    /// This function takes a reference to an `AggregateUpdates` which contains updates fetched from
+    /// the blockchain. It iterates over each update, verifies it for correctness and then
+    /// applies it to the local state. The function performs these operations for three types of
+    /// updates: regular updates, finality updates, and optimistic updates.
+    /// # Arguments
+    /// * `updates`: A reference to an `AggregateUpdates` object that contains the updates to be
+    ///   verified and applied.
+    /// # Returns
+    /// * `Result<(), Error>`: This function returns a `Result` type. On successful verification and
+    ///   application of all updates, it returns `Ok(())`. If there is an error at any point during
+    ///   the verification or application process, it returns `Err(Error)`.
+    /// # Errors
+    /// This function will return an error if:
+    /// * Any of the updates fails the verification process.
+    /// * There is an error while applying any of the updates.
+    pub fn verify_and_apply_updates(
+        &mut self,
+        updates: &AggregateUpdates,
+    ) -> Result<(), eyre::Error> {
+        for update in &updates.updates {
+            self.verify_update(update)?;
+            self.apply_update(update);
+        }
+
+        self.verify_finality_update(&updates.finality_update)?;
+        self.apply_finality_update(&updates.finality_update);
+
+        self.verify_optimistic_update(&updates.optimistic_update)?;
+        self.apply_optimistic_update(&updates.optimistic_update);
+
+        Ok(())
+    }
 }
 
+/// Extracts the public keys of committee members who have participated, based on a bitfield.
+///
+/// Iterates over the provided bitfield, where each bit represents the participation
+/// status of a committee member (`1` for participated, `0` for not).
+/// For each bit set to `1`, the corresponding public key from the committee is
+/// extracted and included in the returned list.
+///
+/// # Arguments
+/// * `committee` – A reference to the [`SyncCommittee`] struct, which contains the public keys of
+///   all committee members.
+/// * `bitfield` – A reference to a [`Bitvector<512>`] representing the participation status of each
+///   committee member.
 fn get_participating_keys(
     committee: &SyncCommittee,
     bitfield: &Bitvector<512>,
@@ -723,6 +854,7 @@ fn get_participating_keys(
     Ok(pks)
 }
 
+/// Counts the number of bits set to `true` in a given [`Bitvector<512>`].
 fn get_bits(bitfield: &Bitvector<512>) -> u64 {
     let mut count = 0;
     bitfield.iter().for_each(|bit| {
@@ -742,6 +874,19 @@ fn is_finality_proof_valid(
     is_proof_valid(attested_header, finality_header, finality_branch, 6, 41)
 }
 
+/// Validates the proof of the next sync committee.
+///
+/// This function checks if the provided `next_committee` is valid by verifying the proof
+/// against the `attested_header` and `next_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 23, respectively.
+/// # Arguments
+/// * `attested_header` – A reference to the [`Header`] struct representing the header that was
+///   attested.
+/// * `next_committee` – A mutable reference to the [`SyncCommittee`] struct representing the next
+///   sync committee to be validated.
+/// * `next_committee_branch` – A slice of [`Bytes32`] representing the Merkle branch used to
+///   validate the committee.
 fn is_next_committee_proof_valid(
     attested_header: &Header,
     next_committee: &mut SyncCommittee,
@@ -756,6 +901,19 @@ fn is_next_committee_proof_valid(
     )
 }
 
+/// Validates the proof of the next sync committee.
+///
+/// This function checks if the provided `current_committee` is valid by verifying the proof
+/// against the `attested_header` and `current_committee_branch`. It uses a specific proof
+/// validation method that requires the indices of the start, and the end of the committee in the
+/// Merkle tree, which are hardcoded as 5 and 22, respectively.
+/// # Arguments
+/// * `attested_header` – A reference to the [`Header`] struct representing the header that was
+///   attested.
+/// * `current_committee` – A mutable reference to the [`SyncCommittee`] struct representing the
+///   next sync committee to be validated.
+/// * `current_committee_branch` – A slice of [`Bytes32`] representing the Merkle branch used to
+///   validate the committee.
 fn is_current_committee_proof_valid(
     attested_header: &Header,
     current_committee: &mut SyncCommittee,
@@ -783,10 +941,10 @@ mod tests {
         errors::ConsensusError,
         rpc::{mock_rpc::MockRpc, ConsensusRpc},
         types::{BLSPubKey, Header, SignatureBytes},
-        Inner,
+        ConsensusStateManager,
     };
 
-    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> Inner<MockRpc> {
+    async fn get_client(strict_checkpoint_age: bool, sync: bool) -> ConsensusStateManager<MockRpc> {
         let base_config = networks::mainnet();
         let config = Config {
             consensus_rpc: String::new(),
@@ -805,12 +963,13 @@ mod tests {
         let (finalized_block_send, _) = watch::channel(None);
         let (channel_send, _) = watch::channel(None);
 
-        let mut client = Inner::new(
+        let mut client = ConsensusStateManager::new(
             "testdata/",
-            block_send,
-            finalized_block_send,
-            channel_send,
+            Some(block_send),
+            Some(finalized_block_send),
+            Some(channel_send),
             Arc::new(config),
+            None,
         );
 
         if sync {

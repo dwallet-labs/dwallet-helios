@@ -9,23 +9,26 @@ use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     base::BaseConfig,
     cli::CliConfig,
     types::{ChainConfig, Forks},
-    utils::{bytes_deserialize, bytes_opt_deserialize},
+    utils::{bytes_deserialize, bytes_opt_deserialize, bytes_serialize},
     Network,
 };
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Config {
     pub consensus_rpc: String,
     pub execution_rpc: String,
     pub rpc_bind_ip: Option<IpAddr>,
     pub rpc_port: Option<u16>,
-    #[serde(deserialize_with = "bytes_deserialize")]
+    #[serde(
+        serialize_with = "bytes_serialize",
+        deserialize_with = "bytes_deserialize"
+    )]
     pub default_checkpoint: Vec<u8>,
     #[serde(default)]
     #[serde(deserialize_with = "bytes_opt_deserialize")]
@@ -69,7 +72,7 @@ impl Config {
                         println!("\n\ttry supplying the proper command line argument: --{field}");
 
                         println!("\talternatively, you can add the field to your helios.toml file or as an environment variable");
-                        println!("\nfor more information, check the github README");
+                        println!("\nfor more information, check the GitHub README");
                     }
                     _ => println!("cannot parse configuration: {err}"),
                 }
