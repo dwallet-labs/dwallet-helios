@@ -98,7 +98,7 @@ pub mod dwallet {
 }
 
 pub mod execution {
-    pub use execution::verify_proof;
+    pub use execution::{get_message_storage_slot, verify_proof};
 }
 
 pub mod consensus {
