@@ -63,6 +63,7 @@ impl Network {
             5 => Ok(Network::GOERLI),
             11155111 => Ok(Network::SEPOLIA),
             17000 => Ok(Network::HOLESKY),
+            32382 => Ok(Network::LOCAL),
             _ => Err(eyre::eyre!("unknown chain ID")),
         }
     }

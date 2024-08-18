@@ -264,6 +264,10 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self.store.finalized_header.state_root
     }
 
+    pub fn get_network(self) -> Result<Network> {
+        Network::from_chain_id(self.config.chain.chain_id)
+    }
+
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
         let mut block = self.rpc.get_block(slot).await?;
