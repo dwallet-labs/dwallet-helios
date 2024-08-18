@@ -12,7 +12,6 @@ use client::{Client, ClientBuilder};
 use config::Network;
 use consensus::database::FileDB;
 use ethers::prelude::{Address, EIP1186ProofResponse};
-use execution::types::ProofVerificationInput;
 
 /// Interface of the Ethereum light client for dWallet network.
 pub struct EthLightClientWrapper {
@@ -36,12 +35,6 @@ pub struct ProofRequestParameters {
     pub message: String,
     pub dwallet_id: Vec<u8>,
     pub data_slot: u64,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
-pub struct ProofResponse {
-    pub account_proof: ProofVerificationInput,
-    pub storage_proof: ProofVerificationInput,
 }
 
 impl EthLightClientWrapper {
