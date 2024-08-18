@@ -10,11 +10,9 @@
 use anyhow::anyhow;
 use client::{Client, ClientBuilder};
 use config::Network;
-use consensus::{database::FileDB, types::ExecutionPayload};
-use ethers::prelude::Address;
+use consensus::database::FileDB;
+use ethers::prelude::{Address, EIP1186ProofResponse};
 use execution::types::ProofVerificationInput;
-
-use crate::utils::{create_account_proof, extract_storage_proof};
 
 /// Interface of the Ethereum light client for dWallet network.
 pub struct EthLightClientWrapper {
@@ -93,17 +91,14 @@ impl EthLightClientWrapper {
         self: &mut EthLightClientWrapper,
         contract_addr: &Address,
         proof_parameters: ProofRequestParameters,
-        latest_execution_payload: &ExecutionPayload,
-    ) -> Result<ProofResponse, anyhow::Error> {
+        latest_execution_block_number: u64,
+    ) -> Result<EIP1186ProofResponse, anyhow::Error> {
         let message_map_index = execution::get_message_storage_slot(
             proof_parameters.message.clone(),
             proof_parameters.dwallet_id.clone(),
             proof_parameters.data_slot,
         )
         .map_err(|e| anyhow!("failed to calculate message storage slot: {}", e))?;
-
-        let latest_execution_state_root = latest_execution_payload.state_root();
-        let latest_execution_block_number = latest_execution_payload.block_number().as_u64();
 
         let proof = self
             .client
@@ -115,15 +110,6 @@ impl EthLightClientWrapper {
             .await
             .map_err(|e| anyhow!("failed to get proof: {}", e))?;
 
-        let account_proof =
-            create_account_proof(contract_addr, latest_execution_state_root, &proof);
-
-        let storage_proof = extract_storage_proof(message_map_index, proof)
-            .map_err(|e| anyhow!("failed to create storage proof: {}", e))?;
-
-        Ok(ProofResponse {
-            account_proof,
-            storage_proof,
-        })
+        Ok(proof)
     }
 }

@@ -260,6 +260,10 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self
     }
 
+    pub fn get_finalized_state_root(self) -> Bytes32 {
+        self.store.finalized_header.state_root
+    }
+
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
         let slot = slot.unwrap_or(self.store.optimistic_header.slot.into());
         let mut block = self.rpc.get_block(slot).await?;

@@ -102,5 +102,5 @@ pub mod execution {
 }
 
 pub mod consensus {
-    pub use consensus::{rpc::*, ConsensusStateManager};
+    pub use consensus::{rpc::*, types::*, ConsensusStateManager};
 }

@@ -16,7 +16,7 @@ use eyre::{eyre, Report};
 const TRUE_VALUE: u8 = 1;
 
 /// Creates a proof verification input for an Ethereum account.
-pub(crate) fn create_account_proof(
+pub fn create_account_proof(
     contract_addr: &Address,
     state_root: &Bytes32,
     proof: &EIP1186ProofResponse,
@@ -50,7 +50,7 @@ pub(crate) fn encode_account(proof: &EIP1186ProofResponse) -> Vec<u8> {
 
 /// Extracts the storage proof for a specific message from the proof response
 /// and returns a [`ProofVerificationInput`] with the storage proof.
-pub(crate) fn extract_storage_proof(
+pub fn extract_storage_proof(
     message_map_index: H256,
     proof: EIP1186ProofResponse,
 ) -> Result<ProofVerificationInput, Report> {
