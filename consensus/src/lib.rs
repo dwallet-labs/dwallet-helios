@@ -5,6 +5,7 @@ pub mod types;
 
 mod consensus;
 pub use rpc::*;
+pub use types::Bytes32;
 
 pub use crate::consensus::{ConsensusStateManager, *};
 
