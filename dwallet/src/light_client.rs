@@ -1,14 +1,14 @@
 /// Ethereum light client for dWallet network.
-/// 
+///
 /// This module defines an Ethereum light client interface for the dwallet network, providing
 /// functionality to initialize, start, and interact with an Ethereum light client. It supports
-/// retrieving Merkle proofs for account and storage states and fetching updates from the consensus
-/// layer.
+/// retrieving Merkle proofs for account and storage states and fetching updates from the
+/// consensus layer.
 ///
-/// The main structure provided is [`EthLightClientWrapper`], which integrates with the `ethers`
-/// library for Ethereum interaction. The configuration and request parameters for the client are
-/// defined in the [`EthLightClientConfig`] and [`ProofRequestParameters`] structures respectively.
-
+/// The main structure provided is [`EthLightClientWrapper`], which integrates with the
+/// `ethers` library for Ethereum interaction. The configuration and request parameters for the
+/// client are defined in the [`EthLightClientConfig`] and [`ProofRequestParameters`]
+/// structures respectively.
 use anyhow::anyhow;
 use client::{Client, ClientBuilder};
 use config::Network;

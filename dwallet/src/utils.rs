@@ -4,7 +4,7 @@
 use ethers::{prelude::EIP1186ProofResponse, utils::rlp::RlpStream};
 
 /// Encodes an Ethereum account using RLP encoding according to the Ethereum specifications.
-/// 
+///
 /// These four elements are the fundamental components of an Ethereum account,
 /// and thus they are the ones that need to be encoded to represent the account's state fully.
 /// You can read more about accounts' state
