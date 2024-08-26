@@ -30,7 +30,7 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     phantom: PhantomData<R>,
 }
 
-/// This struct's original name was `Inner`, but it was renamed to `ConsensusStateManager`
+/// This struct original name was `Inner`, but it was renamed to `ConsensusStateManager`
 /// as part of refactoring to use it independently, without the `ConsensusClient` wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsensusStateManager<R: ConsensusRpc> {
@@ -118,8 +118,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                .await
-                .unwrap();
+                    .await
+                    .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -211,9 +211,9 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// The object that is created does not include any state in it's [`LightClientStore`].
     /// The state will be first fetched on bootstrapping.
     /// # Arguments
-    /// * `checkpoint` - A verified checkpoint from a trusted source.
-    /// * `network` - The network configuration for the consensus client.
-    /// * `rpc` - The RPC url from which the state bootstrapping would be done.
+    /// * `checkpoint` — A verified checkpoint from a trusted source.
+    /// * `network` — The network configuration for the consensus client.
+    /// * `rpc` — The RPC url from which the state bootstrapping would be done.
     ///
     /// # Note
     /// RPC is not set in this function.
@@ -296,7 +296,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -790,7 +790,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old.
+    // Determines `blockhash_slot` age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);
