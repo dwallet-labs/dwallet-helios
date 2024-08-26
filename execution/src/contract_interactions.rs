@@ -55,6 +55,7 @@ fn calculate_key(mut message: Vec<u8>, dwallet_id: Vec<u8>) -> H256 {
 }
 
 /// Calculates the storage slot for a given message, dWallet ID, and data slot.
+///
 /// The function first calculates a key by hashing the message, and the dWallet ID together.
 /// Then, it calculates the mapping slot for the calculated key, and the provided data slot.
 /// The calculated mapping slot can be used to locate the (key, value) pair in the contract's

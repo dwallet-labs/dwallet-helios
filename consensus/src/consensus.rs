@@ -30,7 +30,7 @@ pub struct ConsensusClient<R: ConsensusRpc, DB: Database> {
     phantom: PhantomData<R>,
 }
 
-/// This struct's original name was `Inner`, but it was renamed to `ConsensusStateManager`
+/// This struct original name was `Inner`, but it was renamed to `ConsensusStateManager`
 /// as part of refactoring to use it independently, without the `ConsensusClient` wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsensusStateManager<R: ConsensusRpc> {
@@ -204,6 +204,40 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
             checkpoint_send,
             config: (*config).clone(),
         }
+    }
+
+    /// Creates a new [`ConsensusStateManager`] with only a checkpoint and network configuration.
+    /// Checkpoint should be a verified checkpoint from a trusted source.
+    /// The object that is created does not include any state in it's [`LightClientStore`].
+    /// The state will be first fetched on bootstrapping.
+    /// # Arguments
+    /// * `checkpoint` — A verified checkpoint from a trusted source.
+    /// * `network` — The network configuration for the consensus client.
+    /// * `rpc` — The RPC url from which the state bootstrapping would be done.
+    ///
+    /// # Note
+    /// RPC is not set in this function.
+    /// It should be set using the `set_rpc` function whenever the [`ConsensusStateManager`]
+    /// is used outside `Helios` client.
+    /// This is because you can use the same [`ConsensusStateManager`] object with different RPCs.
+    pub async fn new_from_checkpoint(
+        checkpoint: Vec<u8>,
+        network: Network,
+        rpc: String,
+    ) -> Result<ConsensusStateManager<R>> {
+        let rpc = R::new(&rpc);
+        let config = network.to_base_config().as_config();
+        let mut state = ConsensusStateManager {
+            rpc,
+            config,
+            last_checkpoint: Some(checkpoint.clone()),
+            store: LightClientStore::default(),
+            block_send: None,
+            finalized_block_send: None,
+            checkpoint_send: None,
+        };
+        state.bootstrap(&checkpoint).await?;
+        Ok(state)
     }
 
     pub async fn check_rpc(&self) -> Result<()> {
@@ -756,7 +790,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         slot * 12 + self.config.chain.genesis_time
     }
 
-    // Determines blockhash_slot age and returns true if it is less than 14 days old.
+    // Determines `blockhash_slot` age and returns true if it is less than 14 days old.
     fn is_valid_checkpoint(&self, blockhash_slot: u64) -> bool {
         let current_slot = self.expected_current_slot();
         let current_slot_timestamp = self.slot_timestamp(current_slot);

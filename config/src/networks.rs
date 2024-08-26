@@ -249,8 +249,10 @@ pub fn holesky() -> BaseConfig {
     }
 }
 
-/// To use this function, you must have an Ethereum network configuration file in your Sui
-/// config directory.
+/// Local Config.
+///
+/// To use this function, you must have an Ethereum network
+/// configuration file in your Sui config directory.
 /// The file should be named `eth_config.yaml`.
 /// If the file does not exist, the function will exit with code (1).
 pub fn local() -> BaseConfig {
