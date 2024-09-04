@@ -267,12 +267,17 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self
     }
 
-    pub fn get_finalized_state_root(self) -> Bytes32 {
-        self.store.finalized_header.state_root
-    }
-
     pub fn get_network(self) -> Result<Network> {
         Network::from_chain_id(self.config.chain.chain_id)
+    }
+
+    pub fn get_finalized_header(self) -> Header {
+        self.store.finalized_header.clone()
+    }
+
+    pub async fn get_beacon_block(&self, slot: u64) -> Result<BeaconBlock> {
+        let block = self.rpc.get_block(slot).await?;
+        Ok(block)
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
@@ -823,15 +828,14 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     ///    - Verifies and applies an optimistic update, which might still be subject to change but
     ///      is accepted optimistically to keep the state as current as possible.
     pub async fn get_updates_since_checkpoint(&mut self) -> Result<AggregateUpdates, eyre::Error> {
-        let checkpoint = match self.last_checkpoint.clone() {
-            Some(checkpoint) => checkpoint,
-            None => return Err(eyre!("no checkpoint provided")),
-        };
-
         if self.store.finalized_header.slot == U64::from(0)
             || self.store.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
         {
-            self.bootstrap(&checkpoint).await?;
+            if let Some(checkpoint) = self.last_checkpoint.clone() {
+                self.bootstrap(&checkpoint).await?;
+            } else {
+                return Err(eyre!("no checkpoint provided"));
+            }
         }
 
         let current_period = calc_sync_period(self.store.finalized_header.slot.into());

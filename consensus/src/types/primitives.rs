@@ -104,7 +104,7 @@ impl<'de, const N: usize> serde::Deserialize<'de> for ByteVector<N> {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ByteList<const N: usize> {
     inner: List<u8, N>,
 }
@@ -178,13 +178,25 @@ impl<const N: usize> Deserialize for ByteList<N> {
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteList<N> {}
 
+/// serde::Serialize custom implementation that [`hex::encode`] the given bytes to serialize
+/// properly to json format.
+impl<const N: usize> serde::Serialize for ByteList<N> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let bytes = encode(self.inner.as_slice());
+        serializer.serialize_str(format!("0x{}", bytes).as_str())
+    }
+}
+
 impl<'de, const N: usize> serde::Deserialize<'de> for ByteList<N> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let bytes: String = serde::Deserialize::deserialize(deserializer)?;
-        let bytes = hex::decode(bytes.strip_prefix("0x").unwrap()).unwrap();
+        let bytes = hex::decode(bytes.strip_prefix("0x").unwrap_or(&bytes)).unwrap();
         Ok(Self {
             inner: bytes.to_vec().try_into().unwrap(),
         })
