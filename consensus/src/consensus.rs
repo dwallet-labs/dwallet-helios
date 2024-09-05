@@ -827,7 +827,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     ///      and are irreversible.
     ///    - Verifies and applies an optimistic update, which might still be subject to change but
     ///      is accepted optimistically to keep the state as current as possible.
-    pub async fn get_updates_since_checkpoint(&mut self) -> Result<AggregateUpdates, eyre::Error> {
+    pub async fn get_updates_since_finalized(&mut self) -> Result<AggregateUpdates, eyre::Error> {
         if self.store.finalized_header.slot == U64::from(0)
             || self.store.current_sync_committee.aggregate_pubkey == BLSPubKey::default()
         {
@@ -871,7 +871,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// This function will return an error if:
     /// * Any of the updates fails the verification process.
     /// * There is an error while applying any of the updates.
-    pub fn verify_and_apply_updates(
+    pub fn verify_and_apply_initial_updates(
         &mut self,
         updates: &AggregateUpdates,
     ) -> Result<(), eyre::Error> {
@@ -887,6 +887,68 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self.apply_optimistic_update(&updates.optimistic_update);
 
         Ok(())
+    }
+
+    /// Advances the current state to a newer state using the provided updates.
+    /// Verifies and applies finality and optimistic updates.
+    /// If the next sync committee is not set, it checks for a sync committee update and applies it
+    /// if valid.
+    /// # Arguments
+    /// * `updates` - An `AggregateUpdates` struct containing the updates to be applied.
+    /// # Returns
+    /// * Returns `Ok(())` if the state is successfully advanced, or an error if any update
+    ///   verification or application fails.
+    pub fn advance_state(&mut self, updates: AggregateUpdates) -> Result<(), eyre::Error> {
+        self.verify_finality_update(&updates.finality_update)?;
+        self.apply_finality_update(&updates.finality_update);
+
+        self.verify_optimistic_update(&updates.optimistic_update)?;
+        self.apply_optimistic_update(&updates.optimistic_update);
+
+        if self.store.next_sync_committee.is_none() {
+            debug!(target: "helios::consensus", "Checking for sync committee update");
+            let updates = updates.updates;
+
+            if updates.len() == 1 {
+                let update = updates.first().unwrap();
+                let res = self.verify_update(update);
+
+                if res.is_ok() {
+                    info!(target: "helios::consensus", "Updating sync committee");
+                    self.apply_update(update);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Determines if the provided updates are relevant to the current state.
+    /// Checks if the updates contain a next sync committee update when the current state
+    /// does not have one, or if the attested header slot in the updates is greater than the
+    /// finalized header slot in the current state.
+    /// # Arguments
+    /// * `updates` - A reference to an `AggregateUpdates` struct containing the updates to be
+    ///   checked.
+    /// # Returns
+    /// * Returns `Ok(true)` if the updates are relevant, `Ok(false)` otherwise. Returns an error if
+    ///   no updates are found.
+    pub fn is_update_relevant(&self, updates: &AggregateUpdates) -> Result<bool> {
+        let store_period = calc_sync_period(self.store.finalized_header.slot.into());
+        let update = updates.updates.first().ok_or(eyre!("no updates found"))?;
+        let update = GenericUpdate::from(update);
+        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
+        let update_has_next_committee = self.store.next_sync_committee.is_none()
+            && update.next_sync_committee.is_some()
+            && update_attested_period == store_period;
+
+        if update.attested_header.slot <= self.store.finalized_header.slot
+            && !update_has_next_committee
+        {
+            return Ok(false);
+        }
+
+        Ok(true)
     }
 }
 
