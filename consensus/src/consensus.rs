@@ -931,9 +931,9 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// * `updates` - A reference to an `AggregateUpdates` struct containing the updates to be
     ///   checked.
     /// # Returns
-    /// * Returns `Ok(true)` if the updates are relevant, `Ok(false)` otherwise. Returns an error if
-    ///   no updates are found.
-    pub fn is_update_relevant(&self, updates: &AggregateUpdates) -> Result<bool> {
+    /// * Returns `Ok(true)` if we should apply the finality and optimistic updates first,
+    ///   `Ok(false)` otherwise. Returns an error if no updates are found.
+    pub fn should_apply_finality_update_first(&self, updates: &AggregateUpdates) -> Result<bool> {
         let store_period = calc_sync_period(self.store.finalized_header.slot.into());
         let update = updates.updates.first().ok_or(eyre!("no updates found"))?;
         let update = GenericUpdate::from(update);
@@ -945,10 +945,12 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         if update.attested_header.slot <= self.store.finalized_header.slot
             && !update_has_next_committee
         {
-            return Ok(false);
+            // Update is not relevant, we should apply the finality update first.
+            return Ok(true);
         }
 
-        Ok(true)
+        // Update is relevant, we can apply it first.
+        Ok(false)
     }
 }
 

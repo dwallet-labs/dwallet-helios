@@ -478,4 +478,13 @@ impl BeaconBlockBody {
             }
         }
     }
+
+    /// Returns the block type of the [`BeaconBlockBody`].
+    pub fn get_block_type(&self) -> BeaconBlockType {
+        match self {
+            BeaconBlockBody::Bellatrix(_) => BeaconBlockType::Bellatrix,
+            BeaconBlockBody::Capella(_) => BeaconBlockType::Capella,
+            BeaconBlockBody::Deneb(_) => BeaconBlockType::Deneb,
+        }
+    }
 }
