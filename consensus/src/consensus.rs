@@ -898,6 +898,9 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// # Returns
     /// * Returns `Ok(())` if the state is successfully advanced, or an error if any update
     ///   verification or application fails.
+    /// # Note
+    /// * This is a decoupled version of the [`self.advance`] function, which separates the
+    ///   verification from the fetching of updates.
     pub fn advance_state(&mut self, updates: AggregateUpdates) -> Result<(), eyre::Error> {
         self.verify_finality_update(&updates.finality_update)?;
         self.apply_finality_update(&updates.finality_update);
@@ -906,7 +909,6 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self.apply_optimistic_update(&updates.optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            debug!(target: "helios::consensus", "Checking for sync committee update");
             let updates = updates.updates;
 
             if updates.len() == 1 {
