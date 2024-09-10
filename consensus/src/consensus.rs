@@ -118,8 +118,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                .await
-                .unwrap();
+                    .await
+                    .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -276,8 +276,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     }
 
     pub async fn get_beacon_block(&self, slot: u64) -> Result<BeaconBlock> {
-        let block = self.rpc.get_block(slot).await?;
-        Ok(block)
+        self.rpc.get_block(slot).await
     }
 
     pub async fn get_execution_payload(&self, slot: &Option<u64>) -> Result<ExecutionPayload> {
@@ -301,7 +300,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-            .into())
+                .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
@@ -894,7 +893,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// If the next sync committee is not set, it checks for a sync committee update and applies it
     /// if valid.
     /// # Arguments
-    /// * `updates` - An `AggregateUpdates` struct containing the updates to be applied.
+    /// * `updates` — An `AggregateUpdates` struct containing the updates to be applied.
     /// # Returns
     /// * Returns `Ok(())` if the state is successfully advanced, or an error if any update
     ///   verification or application fails.
@@ -930,7 +929,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// does not have one, or if the attested header slot in the updates is greater than the
     /// finalized header slot in the current state.
     /// # Arguments
-    /// * `updates` - A reference to an `AggregateUpdates` struct containing the updates to be
+    /// * `updates` — A reference to an `AggregateUpdates` struct containing the updates to be
     ///   checked.
     /// # Returns
     /// * Returns `Ok(true)` if we should apply the finality and optimistic updates first,
@@ -947,7 +946,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         if update.attested_header.slot <= self.store.finalized_header.slot
             && !update_has_next_committee
         {
-            // Update is not relevant, we should apply the finality update first.
+            // Update is irrelevant, we should apply the finality update first.
             return Ok(true);
         }
 

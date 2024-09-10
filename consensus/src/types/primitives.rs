@@ -178,8 +178,8 @@ impl<const N: usize> Deserialize for ByteList<N> {
 
 impl<const N: usize> ssz_rs::SimpleSerialize for ByteList<N> {}
 
-/// serde::Serialize custom implementation that [`hex::encode`] the given bytes to serialize
-/// properly to json format.
+/// [`serde::Serialize`] custom implementation that [`encode`] the given bytes to serialize
+/// properly to JSON format.
 impl<const N: usize> serde::Serialize for ByteList<N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
