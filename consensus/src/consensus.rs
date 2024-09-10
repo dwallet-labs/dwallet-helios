@@ -118,8 +118,8 @@ impl<R: ConsensusRpc, DB: Database> ConsensusClient<R, DB> {
                         .to_std()
                         .unwrap(),
                 )
-                    .await
-                    .unwrap();
+                .await
+                .unwrap();
 
                 let res = consensus_state_manager.advance().await;
                 if let Err(err) = res {
@@ -300,7 +300,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
                 block_hash.to_string(),
                 verified_block_hash.to_string(),
             )
-                .into())
+            .into())
         } else {
             Ok(block.body.execution_payload().clone())
         }
