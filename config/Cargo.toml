@@ -22,6 +22,7 @@ common = { path = "../common" }
 anyhow.workspace = true
 tempdir = "0.3.7"
 strum_macros = "0.26.4"
+dirs = "5.0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio.workspace = true

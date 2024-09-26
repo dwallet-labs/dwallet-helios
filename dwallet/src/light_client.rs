@@ -12,12 +12,12 @@
 use anyhow::anyhow;
 use client::{Client, ClientBuilder};
 use config::Network;
-use consensus::database::FileDB;
+use consensus::database::ConfigDB;
 use ethers::prelude::{Address, EIP1186ProofResponse};
 
 /// Interface of the Ethereum light client for dWallet network.
 pub struct EthLightClientWrapper {
-    client: Client<FileDB>,
+    client: Client<ConfigDB>,
 }
 
 #[derive(Default, Clone)]
@@ -42,12 +42,11 @@ pub struct ProofRequestParameters {
 impl EthLightClientWrapper {
     fn new(config: EthLightClientConfig) -> Result<Self, anyhow::Error> {
         let network = &config.network;
-        let client: Client<FileDB> = ClientBuilder::new()
+        let client: Client<ConfigDB> = ClientBuilder::new()
             .network(*network)
             .execution_rpc(&config.execution_rpc)
             .consensus_rpc(&config.consensus_rpc)
             .checkpoint(&config.checkpoint)
-            .data_dir("/tmp/helios".parse()?)
             .build()
             .map_err(|e| anyhow!("failed to create a client: {}", e))?;
 

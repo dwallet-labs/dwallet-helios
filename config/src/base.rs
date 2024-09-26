@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use dirs;
 use serde::{Deserialize, Serialize};
 
 use crate::{
