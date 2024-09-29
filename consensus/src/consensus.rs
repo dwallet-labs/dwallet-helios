@@ -257,7 +257,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
             finalized_block_send: None,
             checkpoint_send: None,
         };
-        let _ = state.bootstrap_offline(&checkpoint, bootstrap);
+        state.bootstrap_offline(&checkpoint, bootstrap)?;
         Ok(state)
     }
 
@@ -483,33 +483,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
             .await
             .map_err(|e| eyre!("could not fetch bootstrap. error: {e}"))?;
 
-        let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
-
-        if !is_valid {
-            if self.config.strict_checkpoint_age {
-                return Err(ConsensusError::CheckpointTooOld.into());
-            } else {
-                warn!(target: "helios::consensus", "checkpoint too old, consider using a more recent block");
-            }
-        }
-
-        let committee_valid = is_current_committee_proof_valid(
-            &bootstrap.header,
-            &mut bootstrap.current_sync_committee,
-            &bootstrap.current_sync_committee_branch,
-        );
-
-        let header_hash = bootstrap.header.hash_tree_root()?.to_string();
-        let expected_hash = format!("0x{}", hex::encode(checkpoint));
-        let header_valid = header_hash == expected_hash;
-
-        if !header_valid {
-            return Err(ConsensusError::InvalidHeaderHash(expected_hash, header_hash).into());
-        }
-
-        if !committee_valid {
-            return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
-        }
+        self.validate_bootstrap(checkpoint, &mut bootstrap)?;
 
         self.last_checkpoint = Some(checkpoint.to_vec());
         self.store = LightClientStore {
@@ -525,6 +499,22 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     }
 
     fn bootstrap_offline(&mut self, checkpoint: &[u8], bootstrap: &mut Bootstrap) -> Result<()> {
+        self.validate_bootstrap(checkpoint, bootstrap)?;
+
+        self.last_checkpoint = Some(checkpoint.to_vec());
+        self.store = LightClientStore {
+            finalized_header: bootstrap.header.clone(),
+            current_sync_committee: bootstrap.current_sync_committee.clone(),
+            next_sync_committee: None,
+            optimistic_header: bootstrap.header.clone(),
+            previous_max_active_participants: 0,
+            current_max_active_participants: 0,
+        };
+
+        Ok(())
+    }
+
+    fn validate_bootstrap(&mut self, checkpoint: &[u8], bootstrap: &mut Bootstrap) -> Result<()> {
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
 
         if !is_valid {
@@ -552,16 +542,6 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         if !committee_valid {
             return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
         }
-
-        self.last_checkpoint = Some(checkpoint.to_vec());
-        self.store = LightClientStore {
-            finalized_header: bootstrap.header.clone(),
-            current_sync_committee: bootstrap.current_sync_committee.clone(),
-            next_sync_committee: None,
-            optimistic_header: bootstrap.header.clone(),
-            previous_max_active_participants: 0,
-            current_max_active_participants: 0,
-        };
 
         Ok(())
     }
