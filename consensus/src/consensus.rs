@@ -900,7 +900,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// # Note
     /// * This is a decoupled version of the [`self.advance`] function, which separates the
     ///   verification from the fetching of updates.
-    pub fn advance_state(&mut self, updates: AggregateUpdates) -> Result<(), eyre::Error> {
+    pub fn advance_state(&mut self, updates: &AggregateUpdates) -> Result<(), eyre::Error> {
         self.verify_finality_update(&updates.finality_update)?;
         self.apply_finality_update(&updates.finality_update);
 
@@ -908,7 +908,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self.apply_optimistic_update(&updates.optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            let updates = updates.updates;
+            let updates = &updates.updates;
 
             if updates.len() == 1 {
                 let update = updates.first().unwrap();
