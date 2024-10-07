@@ -483,18 +483,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
             .await
             .map_err(|e| eyre!("could not fetch bootstrap. error: {e}"))?;
 
-        self.validate_bootstrap(checkpoint, &mut bootstrap)?;
-
-        self.last_checkpoint = Some(checkpoint.to_vec());
-        self.store = LightClientStore {
-            finalized_header: bootstrap.header.clone(),
-            current_sync_committee: bootstrap.current_sync_committee,
-            next_sync_committee: None,
-            optimistic_header: bootstrap.header.clone(),
-            previous_max_active_participants: 0,
-            current_max_active_participants: 0,
-        };
-
+        self.bootstrap_offline(checkpoint, &mut bootstrap)?;
         Ok(())
     }
 
