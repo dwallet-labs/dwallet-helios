@@ -240,6 +240,27 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         Ok(state)
     }
 
+    pub fn new_from_checkpoint_and_bootstrap(
+        checkpoint: Vec<u8>,
+        network: Network,
+        rpc: String,
+        bootstrap: &mut Bootstrap,
+    ) -> Result<ConsensusStateManager<R>> {
+        let rpc = R::new(&rpc);
+        let config = network.to_base_config().as_config();
+        let mut state = ConsensusStateManager {
+            rpc,
+            config,
+            last_checkpoint: Some(checkpoint.clone()),
+            store: LightClientStore::default(),
+            block_send: None,
+            finalized_block_send: None,
+            checkpoint_send: None,
+        };
+        state.bootstrap_offline(&checkpoint, bootstrap)?;
+        Ok(state)
+    }
+
     pub async fn check_rpc(&self) -> Result<()> {
         let chain_id = self.rpc.chain_id().await?;
 
@@ -462,6 +483,27 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
             .await
             .map_err(|e| eyre!("could not fetch bootstrap. error: {e}"))?;
 
+        self.bootstrap_offline(checkpoint, &mut bootstrap)?;
+        Ok(())
+    }
+
+    fn bootstrap_offline(&mut self, checkpoint: &[u8], bootstrap: &mut Bootstrap) -> Result<()> {
+        self.validate_bootstrap(checkpoint, bootstrap)?;
+
+        self.last_checkpoint = Some(checkpoint.to_vec());
+        self.store = LightClientStore {
+            finalized_header: bootstrap.header.clone(),
+            current_sync_committee: bootstrap.current_sync_committee.clone(),
+            next_sync_committee: None,
+            optimistic_header: bootstrap.header.clone(),
+            previous_max_active_participants: 0,
+            current_max_active_participants: 0,
+        };
+
+        Ok(())
+    }
+
+    fn validate_bootstrap(&mut self, checkpoint: &[u8], bootstrap: &mut Bootstrap) -> Result<()> {
         let is_valid = self.is_valid_checkpoint(bootstrap.header.slot.into());
 
         if !is_valid {
@@ -489,16 +531,6 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         if !committee_valid {
             return Err(ConsensusError::InvalidCurrentSyncCommitteeProof.into());
         }
-
-        self.last_checkpoint = Some(checkpoint.to_vec());
-        self.store = LightClientStore {
-            finalized_header: bootstrap.header.clone(),
-            current_sync_committee: bootstrap.current_sync_committee,
-            next_sync_committee: None,
-            optimistic_header: bootstrap.header.clone(),
-            previous_max_active_participants: 0,
-            current_max_active_participants: 0,
-        };
 
         Ok(())
     }
@@ -808,7 +840,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     }
 
     /// Synchronizes the local state with the blockchain state since the last verified checkpoint.
-    /// Performs a multistep process to ensure the local state is up-to-date with
+    /// Performs a multistep process to ensure the local state is up to date with
     /// the blockchain's state.
     ///
     /// # Process
@@ -852,6 +884,11 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
             finality_update,
             optimistic_update,
         })
+    }
+
+    /// Determines the sync period for the current finalized header.
+    pub fn get_sync_period(&mut self) -> u64 {
+        calc_sync_period(self.store.finalized_header.slot.into())
     }
 
     /// Verifies and applies updates to the Ethereum state.
@@ -900,7 +937,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
     /// # Note
     /// * This is a decoupled version of the [`self.advance`] function, which separates the
     ///   verification from the fetching of updates.
-    pub fn advance_state(&mut self, updates: AggregateUpdates) -> Result<(), eyre::Error> {
+    pub fn advance_state(&mut self, updates: &AggregateUpdates) -> Result<(), eyre::Error> {
         self.verify_finality_update(&updates.finality_update)?;
         self.apply_finality_update(&updates.finality_update);
 
@@ -908,7 +945,7 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         self.apply_optimistic_update(&updates.optimistic_update);
 
         if self.store.next_sync_committee.is_none() {
-            let updates = updates.updates;
+            let updates = &updates.updates;
 
             if updates.len() == 1 {
                 let update = updates.first().unwrap();
@@ -922,36 +959,6 @@ impl<R: ConsensusRpc> ConsensusStateManager<R> {
         }
 
         Ok(())
-    }
-
-    /// Determines if the provided updates are relevant to the current state.
-    /// Checks if the updates contain a next sync committee update when the current state
-    /// does not have one, or if the attested header slot in the updates is greater than the
-    /// finalized header slot in the current state.
-    /// # Arguments
-    /// * `updates` — A reference to an `AggregateUpdates` struct containing the updates to be
-    ///   checked.
-    /// # Returns
-    /// * Returns `Ok(true)` if we should apply the finality and optimistic updates first,
-    ///   `Ok(false)` otherwise. Returns an error if no updates are found.
-    pub fn should_apply_finality_update_first(&self, updates: &AggregateUpdates) -> Result<bool> {
-        let store_period = calc_sync_period(self.store.finalized_header.slot.into());
-        let update = updates.updates.first().ok_or(eyre!("no updates found"))?;
-        let update = GenericUpdate::from(update);
-        let update_attested_period = calc_sync_period(update.attested_header.slot.into());
-        let update_has_next_committee = self.store.next_sync_committee.is_none()
-            && update.next_sync_committee.is_some()
-            && update_attested_period == store_period;
-
-        if update.attested_header.slot <= self.store.finalized_header.slot
-            && !update_has_next_committee
-        {
-            // Update is irrelevant, we should apply the finality update first.
-            return Ok(true);
-        }
-
-        // Update is relevant, we can apply it first.
-        Ok(false)
     }
 }
 
@@ -1059,6 +1066,7 @@ fn is_current_committee_proof_valid(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::needless_return)]
     use std::sync::Arc;
 
     use config::{networks, Config};

@@ -33,6 +33,7 @@ pub struct Config {
     #[serde(default)]
     #[serde(deserialize_with = "bytes_opt_deserialize")]
     pub checkpoint: Option<Vec<u8>>,
+    #[serde(skip_serializing, skip_deserializing)]
     pub data_dir: Option<PathBuf>,
     pub chain: ChainConfig,
     pub forks: Forks,

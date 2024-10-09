@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return)]
+
 use config::networks;
 use ethers::types::H256;
 

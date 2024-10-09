@@ -384,6 +384,7 @@ fn convert_address(value: &ethers::types::Address) -> Address {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::needless_return)]
     use revm::primitives::KECCAK_EMPTY;
     use tokio::sync::{mpsc::channel, watch};
 

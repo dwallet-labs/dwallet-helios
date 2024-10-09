@@ -1,3 +1,4 @@
+#![allow(clippy::needless_return)]
 use std::sync::Arc;
 
 use config::{networks, Config};
