@@ -1066,6 +1066,7 @@ fn is_current_committee_proof_valid(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::needless_return)]
     use std::sync::Arc;
 
     use config::{networks, Config};

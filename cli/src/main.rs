@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return)]
+
 use std::{
     net::IpAddr,
     path::PathBuf,

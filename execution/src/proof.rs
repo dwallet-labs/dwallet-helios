@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return)]
+
 use ethers::{
     types::{Bytes, EIP1186ProofResponse},
     utils::{

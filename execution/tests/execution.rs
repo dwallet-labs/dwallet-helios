@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return)]
+
 use std::str::FromStr;
 
 use common::types::{Block, BlockTag, Transactions};
